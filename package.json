@@ -1,11 +1,11 @@
 {
-  "name": "mongoose-graphql-template",
+  "name": "graphql-mongoose-service-template",
   "version": "1.0.0",
-  "description": "mongoose-graphql-template",
+  "description": "graphql-mongoose-service-template",
   "main": "build/index.js",
   "repository": {
     "type": "git",
-    "url": "git@github.com:buhi/mongoose-graphql-templatet.git"
+    "url": "git@github.com:buhi/graphql-mongoose-service-template.git"
   },
   "scripts": {
     "version": "npm run build:prod && git add ./build/current",
