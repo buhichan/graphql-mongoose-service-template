@@ -21,4 +21,14 @@ exports.head = function (maybeArr) {
         return maybeArr[0];
     return maybeArr;
 };
+function deepEqual(a, b) {
+    if (a instanceof Array)
+        return a.every(function (_, k) { return deepEqual(a[k], b[k]); });
+    if (typeof a === 'object')
+        return Object.keys(a).every(function (k) {
+            return deepEqual(a[k], b[k]);
+        });
+    return a === b;
+}
+exports.deepEqual = deepEqual;
 //# sourceMappingURL=utils.js.map

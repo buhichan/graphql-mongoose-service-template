@@ -22,3 +22,13 @@ export const head = <T>(maybeArr:T[]|T)=>{
         return maybeArr[0]
     return maybeArr
 }
+
+export function deepEqual(a,b){
+    if(a instanceof Array)
+        return a.every((_,k)=>deepEqual(a[k],b[k]))
+    if(typeof a === 'object')
+        return Object.keys(a).every(k=>{
+            return deepEqual(a[k],b[k])
+        })
+    return a === b
+}
