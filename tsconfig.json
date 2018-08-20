@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "downlevelIteration":true,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "sourceMap": true,
+    "keyofStringsOnly": true,
+    "noStrictGenericChecks": true,
+    "removeComments": false,
+    "jsx": "react",
+    "noImplicitAny": false,
+    "lib":["es6","scripthost","dom","es2016.array.include","es2015.promise","esnext.asynciterable"]
+  },
+  "include":[
+    "src",
+    "./declarations.d"
+  ]
+}
