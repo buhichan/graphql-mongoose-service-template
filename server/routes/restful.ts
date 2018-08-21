@@ -1,4 +1,4 @@
-import { IMetaModel } from "../models/meta";
+import { IMeta } from "../models/meta";
 import { ServerRoute, Request } from "hapi"
 import { pipe, defaultValue, head } from "../../common/utils";
 import * as joi from "joi"
@@ -15,7 +15,7 @@ const getQuery = (name:string)=>{
 }
 
 type BuildRoutesOptions = {
-    meta:IMetaModel,
+    meta:IMeta,
     validators:{
         put:joi.AnySchema,
         post:joi.AnySchema,

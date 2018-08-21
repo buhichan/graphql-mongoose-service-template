@@ -1,141 +1,79 @@
-import { model } from "./helper";
-import "../db"
-import * as joi from "joi"
-import { SchemaTypeOpts, SchemaTypes } from "mongoose";
 
-const typeKey = '$type'
-
-export const fieldTypes:{[type:string]:(fieldMeta:IMetaModelField)=>SchemaTypeOpts<any>} = {
-    "string":()=>String,
-    "number":()=>Number,
-    "date":()=>Date,
-    "enum":metaField=>({
-        [typeKey]:SchemaTypes.String,
-        enum:metaField.enum
-    }),
-    "list":()=>[String],
-    "boolean":()=>Boolean,
-    "array":metaField=>[makeSchemaDefinitions(metaField.children as any)],
-    "object":metaField=>makeSchemaDefinitions(metaField.children as any),
-    "ref":metaField=>({
-        [typeKey]:SchemaTypes.ObjectId,
-        ref:metaField.ref
-    })
+export const fieldTypes = {
+    "number":Number,
+    "string":String,
+    "boolean":Boolean,
+    "ref":String,
+    "array":Array,
+    "object":Object,
+    "date":Date
 }
 
-const metaOfField:IMetaModelField[] = [
-    {
-        name:"name",
-        label:"名称",
-        type:"string",
-    },{
-        name:"label",
-        label:"标签",
-        type:"string",
-    },{
-        name:"type",
-        label:"类型",
-        type:"enum",
-        enum:Object.keys(fieldTypes),
-    },{
-        name:"enum",
-        label:"枚举",
-        type:"list",
-    },{
-        name:"ref",
-        label:"关联",
-        type:"string",
-    }
-]
+export type FieldTypes = keyof typeof fieldTypes
 
-export const metaOfMeta:IMetaModel = {
-    name:"Meta",
-    fields:[
+export interface IMeta {
+    name:string,
+    label:string,
+    type:FieldTypes
+    fields?:IMeta[]
+    item?:IMeta,
+    enum?:string[]
+    ref?:string,
+}
+
+function buildMeta(nestLevel:number){
+    if(nestLevel === 0)
+        return undefined
+    const child = buildMeta(nestLevel-1)
+    const fields:IMeta[] = [
         {
             name:"name",
             label:"名称",
             type:"string",
-            children:[]
         },{
-            name:"fields",
-            label:"字段",
+            name:"label",
+            label:"标签",
+            type:"string",
+        },{
+            name:"type",
+            label:"类型",
+            type:"string",
+            enum:Object.keys(fieldTypes),
+        },{
+            name:"enum",
+            label:"枚举",
             type:"array",
-            children:[
-                ...metaOfField,
-                {
-                    name:"children",
-                    label:"字段",
-                    type:"array",
-                    children:[
-                        ...metaOfField,
-                        {
-                            name:"children",
-                            label:"字段",
-                            type:"array",
-                            children:metaOfField
-                        },
-                    ]
-                },
-            ]
+            item:{
+                name:"enum",
+                type:"string",
+                label:"枚举值"
+            }
+        },{
+            name:"ref",
+            label:"关联",
+            type:"string",
         }
     ]
+    if(child)
+        fields.push(
+            {
+                name:"fields",
+                label:"字段列表",
+                type:"array",
+                item:{
+                    name:"child",
+                    type:"object",
+                    label:"字段定义",
+                    fields:child
+                }
+            }
+        )
+    return fields
 }
 
-export type IMetaModelField = {
-    name:string,
-    label:string,
-    type:keyof typeof fieldTypes
-    children?:IMetaModelField[]
-    enum?:string[]
-    ref?:string
+export const metaOfMeta:IMeta = {
+    name:"Meta",
+    label:"元数据",
+    type:"object",
+    fields:buildMeta(3)
 }
-export type IMetaModel = {
-    name:string,
-    fields:IMetaModelField[]
-}
-
-export const MetaModel = makeModelFromMeta(metaOfMeta)
-
-function makeSchemaDefinitions (metaFields:IMetaModelField[]){
-    return metaFields.reduce((fields,metaField)=>{
-        if(metaField.type in fieldTypes)
-            fields[metaField.name] = fieldTypes[metaField.type](metaField)
-        else
-            console.error("Invalid field meta:", metaField)
-        return fields
-    },{})
-}
-
-export function makeModelFromMeta(meta:IMetaModel){
-    return model<any>(meta.name,makeSchemaDefinitions(meta.fields),{
-        typeKey:typeKey
-    })
-}
-
-const fieldValidator = joi.object({
-    name:joi.string().required(),
-    label:joi.string().required(),
-    type:joi.string().required().allow(Object.keys(fieldTypes)),
-    enum:joi.array().items(joi.string()).optional(),
-    ref:joi.string().optional(),
-    children:joi.array().items(
-        joi.lazy(()=>fieldValidator)
-    ).optional()
-})
-
-export const metaModelValidations = {
-    post:joi.object({
-        name:joi.string().required(),
-        fields:joi.array().items(
-            fieldValidator
-        ).required()
-    }).unknown(true),
-    put:joi.object({
-        name:joi.string().optional(),
-        fields:joi.array().items(
-            fieldValidator
-        ).optional()
-    }).unknown(true),
-}
-
-// console.log(MetaModelDef)

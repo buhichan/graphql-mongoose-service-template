@@ -1,11 +1,14 @@
-import { IMetaModel, IMetaModelField } from "../models/meta";
-import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig } from "graphql";
+import { IMeta } from "../models/meta";
+import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType } from "graphql";
 import { getModel } from "./utils";
+import { Plugin } from "hapi";
 // import { GraphQLSchemaConfig } from "graphql/type/schema";
 
 type GraphqlRoutesOptions = {
-    metas:IMetaModel[],
-    mutations:GraphQLObjectType
+    metas:IMeta[],
+    mutations:{
+        [name:string]:GraphQLFieldConfigMap<void,void>
+    }
 }
 
 type GraphQLTypeMapperContext = {
@@ -19,37 +22,36 @@ function capitalize(str:string){
     return str[0].toUpperCase()+str.slice(1)
 }
 
-function mapToGraphQLType(metaName:string,fields:IMetaModelField[], context:GraphQLTypeMapperContext){
-    const buildField=(field:IMetaModelField):GraphQLFieldConfig<void,void>=>{
+function mapToGraphQLType(metaName:string,fields:IMeta[], context:GraphQLTypeMapperContext){
+    const buildField=(field:IMeta):GraphQLFieldConfig<void,void>=>{
         const fieldName = metaName+capitalize(field.name)
         const currentContext = {
             getRef:context.getRef,
             getValue:x=>context.getValue(x)[field.name]
         }
-        switch(field.type){
-            case "date": return {type:GraphQLInt}
-            case "number": return {type:GraphQLInt}
-            case "boolean": return {type:GraphQLBoolean}
-            case "enum1": return {type:new GraphQLEnumType({
-                name:fieldName,
-                values:field.enum.reduce((map,x)=>({...map,[x]:{value:x}}),{})
-            })}
-            case "list":return {type:new GraphQLList(GraphQLString)}
-            case "ref": return context.getRef(field.ref,currentContext.getValue)
-            case "array": {
-                const type = new GraphQLObjectType({
-                    name:fieldName,
-                    fields:mapToGraphQLType(fieldName,field.children, currentContext)
-                })
+        switch(true){
+            case (field.enum instanceof Array && field.enum.length > 0):{
                 return {
-                    type:new GraphQLList(type)
+                    type:new GraphQLEnumType({
+                        name:fieldName,
+                        values:field.enum.reduce((enums,v)=>({...enums,[v]:{value:v}}),{})
+                    })
                 }
             }
-            case "object": {
+            case field.type==="date": return {type:GraphQLInt}
+            case field.type==="number": return {type:GraphQLInt}
+            case field.type==="boolean": return {type:GraphQLBoolean}
+            case field.type==="ref": return context.getRef(field.ref,currentContext.getValue)
+            case field.type==="array": {
+                return {
+                    type:new GraphQLList(buildField(field.item).type)
+                }
+            }
+            case field.type==="object": {
                 return {
                     type:new GraphQLObjectType({
                         name:fieldName,
-                        fields:mapToGraphQLType(fieldName,field.children, currentContext)
+                        fields:mapToGraphQLType(fieldName,field.fields, currentContext)
                     })
                 }
             }
@@ -66,7 +68,99 @@ function mapToGraphQLType(metaName:string,fields:IMetaModelField[], context:Grap
     },{} as GraphQLFieldConfigMap<void,void>)
 }
 
-export function graphqlRoutes(options:GraphqlRoutesOptions){
+
+function convertToInputType(type:GraphQLType):GraphQLInputType{
+    if(isInputType(type))
+        return type
+    else if(type instanceof GraphQLList)
+        return new GraphQLList(convertToInputType(type.ofType))
+    else if(type instanceof GraphQLObjectType){
+        const fields = type.getFields()
+        return new GraphQLInputObjectType({
+            name:"_"+type.name,
+            fields:Object.keys(fields).reduce((inputFields,fieldName)=>{
+                const converted = convertToInputType(fields[fieldName].type)
+                if(converted)
+                    inputFields[fieldName] = {
+                        type:converted,
+                    }
+                return inputFields
+            },{})
+        })
+    }else
+        return null
+}
+
+function buildGraphQLSchema(rootTypes:GraphQLObjectType[]){
+    return new GraphQLSchema({
+        query:new GraphQLObjectType({
+            name:"Root",
+            fields:rootTypes.reduce((query,type)=>{
+                query[type.name] = {
+                    type:new GraphQLList(type),
+                    resolve:async (source,args,context,info)=>{
+                        const model = await getModel(type.name)
+                        if(!model)
+                            return []
+                        else
+                            return model.find(args)
+                    }
+                }
+                return query
+            },{} as GraphQLFieldConfigMap<any,any>),
+        }),
+        types:rootTypes,
+        mutation:new GraphQLObjectType({
+            name:"Mutation",
+            fields:rootTypes.reduce((mutations,type)=>{
+                const convertedInputType = convertToInputType(type)
+                mutations['add'+capitalize(type.name)] = {
+                    type:type,
+                    args:{
+                        payload:{
+                            type:convertedInputType
+                        }
+                    },
+                    resolve:async (source,args,context,info)=>{
+                        const model = await getModel(type.name)
+                        return model.create(args.payload)
+                    }
+                }
+                mutations['update'+capitalize(type.name)] = {
+                    type:type,
+                    args:{
+                        condition:{
+                            type:convertedInputType
+                        },
+                        payload:{
+                            type:convertedInputType
+                        }
+                    },
+                    resolve:async (source,args,context,info)=>{
+                        const model = await getModel(type.name)
+                        return model.update(args.condition,args.payload).exec()
+                    }
+                }
+                mutations['delete'+capitalize(type.name)] = {
+                    type:GraphQLInt,
+                    args:{
+                        condition:{
+                            type:convertedInputType
+                        }
+                    },
+                    resolve:async (source,args,context,info)=>{
+                        const model = await getModel(type.name)
+                        const res = await model.remove(args.condition).exec()
+                        return res ? res.n : 0
+                    }
+                }
+                return mutations
+            },{})
+        })
+    })
+}
+
+export function makeGraphQLPlugin(options:GraphqlRoutesOptions){
     const {metas} = options
     const rootTypes = metas.map(modelMeta=>{
         return new GraphQLObjectType({
@@ -96,48 +190,18 @@ export function graphqlRoutes(options:GraphqlRoutesOptions){
             }
         })
     })
-    const schemaDef = {
-        query:new GraphQLObjectType({
-            name:"Root",
-            fields:rootTypes.reduce((query,type)=>{
-                query[type.name] = {
-                    type:new GraphQLList(type),
-                    resolve:async (source,args,context,info)=>{
-                        const model = await getModel(type.name)
-                        if(!model)
-                            return []
-                        else
-                            return model.find(args)
-                    }
-                }
-                return query
-            },{} as GraphQLFieldConfigMap<any,any>),
-        }),
-        types:rootTypes
-    }
-    try{
-        const schema = new GraphQLSchema(schemaDef)
-        return [
+    
+    let schema:GraphQLSchema = buildGraphQLSchema(rootTypes)
+    return {
+        name:"graphql",
+        register:server=>server.route([
             {
                 path:`/graphql`,
                 method:"post",
                 handler:async (req)=>{
-                    return graphql(schema,req.payload.query)
+                    return graphql(schema,(req.payload as any).query)
                 }
             }
-        ]
-    }catch(e){
-        return [
-            {
-                path:`/graphql`,
-                method:"post",
-                handler:async (_)=>{
-                    return {
-                        message:e.message,
-                        stack:e.stack,
-                    }
-                }
-            }
-        ]
-    }
+        ])
+    } as Plugin<{}>
 }

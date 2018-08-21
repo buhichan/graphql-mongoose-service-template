@@ -8,7 +8,7 @@
     "url": "git@github.com:buhi/graphql-mongoose-service-template.git"
   },
   "scripts": {
-    "push":"git push origin && git push origin2",
+    "push": "git push origin && git push origin2",
     "version": "npm run build:prod && git add ./build/current",
     "postversion": "git push && git push --tags",
     "make:prod": "NODE_ENV=production webpack --bail --progress --profile",
@@ -19,6 +19,7 @@
     "build:prerelease": "npm run make:prerelease && (rm -rf build/prerelease || true) && mv build/`date +'%Y-%m-%d-test'` build/prerelease"
   },
   "dependencies": {
+    "express-graphql": "^0.6.12",
     "graphiql": "^0.11.5",
     "graphql": "^0.11.7",
     "hapi": "^17.5.3",

@@ -1,7 +1,6 @@
 
 
 import * as Hapi from "hapi"
-import { GraphQLObjectType } from "graphql";
 import * as joi from "joi"
 
 export async function bootstrap(){
@@ -15,9 +14,10 @@ export async function bootstrap(){
         default:
             await import("./env/development")
     }
-    const {metaOfMeta,MetaModel,metaModelValidations,makeModelFromMeta } = await import("./models/meta")
+    const {MetaModel,metaModelValidations,makeModelFromMeta } = await import("./models/model")
+    const {metaOfMeta} = await import("./models/meta")
     const {restfulRoutes} = await import("./routes/restful")
-    const {graphqlRoutes} = await import("./routes/graphql")
+    const {makeGraphQLPlugin} = await import("./routes/graphql")
     const {connection} = await import("./db")
 
     console.log(`Dependencies loaded.`)
@@ -58,15 +58,14 @@ export async function bootstrap(){
         }))
     })
 
-    server.route(graphqlRoutes({
-        metas:allMetas.concat(metaOfMeta),
-        mutations:new GraphQLObjectType({
-            name:"Mutation",
-            fields:{
-
+    await server.register({
+        plugin:makeGraphQLPlugin({
+            metas:allMetas.concat(metaOfMeta),
+            mutations:{
+    
             }
         })
-    }))
+    })
 
     await server.start()
 
@@ -86,7 +85,7 @@ export async function bootstrap(){
 
     console.log(`Backend running in http://${ENV.HOST}:${ENV.PORT}`)
     console.log(`Graphql API is http://${ENV.HOST}:${ENV.PORT}/graphql`)
-    console.log(`To run frontend, yarn dev:fe, then go to http://localhost:10082`)
+    console.log(`To see frontend, run yarn dev:fe, then go to http://localhost:10082/`)
     console.log(`Current models: ${(await connection).modelNames()}`)
 }
 

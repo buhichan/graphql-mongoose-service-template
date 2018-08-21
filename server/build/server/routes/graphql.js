@@ -60,33 +60,32 @@ function mapToGraphQLType(metaName, fields, context) {
             getRef: context.getRef,
             getValue: function (x) { return context.getValue(x)[field.name]; }
         };
-        switch (field.type) {
-            case "date": return { type: graphql_1.GraphQLInt };
-            case "number": return { type: graphql_1.GraphQLInt };
-            case "boolean": return { type: graphql_1.GraphQLBoolean };
-            case "enum1": return { type: new graphql_1.GraphQLEnumType({
-                    name: fieldName,
-                    values: field.enum.reduce(function (map, x) {
-                        var _a;
-                        return (__assign({}, map, (_a = {}, _a[x] = { value: x }, _a)));
-                    }, {})
-                }) };
-            case "list": return { type: new graphql_1.GraphQLList(graphql_1.GraphQLString) };
-            case "ref": return context.getRef(field.ref, currentContext.getValue);
-            case "array": {
-                var type = new graphql_1.GraphQLObjectType({
-                    name: fieldName,
-                    fields: mapToGraphQLType(fieldName, field.children, currentContext)
-                });
+        switch (true) {
+            case (field.enum instanceof Array && field.enum.length > 0): {
                 return {
-                    type: new graphql_1.GraphQLList(type)
+                    type: new graphql_1.GraphQLEnumType({
+                        name: fieldName,
+                        values: field.enum.reduce(function (enums, v) {
+                            var _a;
+                            return (__assign({}, enums, (_a = {}, _a[v] = { value: v }, _a)));
+                        }, {})
+                    })
                 };
             }
-            case "object": {
+            case field.type === "date": return { type: graphql_1.GraphQLInt };
+            case field.type === "number": return { type: graphql_1.GraphQLInt };
+            case field.type === "boolean": return { type: graphql_1.GraphQLBoolean };
+            case field.type === "ref": return context.getRef(field.ref, currentContext.getValue);
+            case field.type === "array": {
+                return {
+                    type: new graphql_1.GraphQLList(buildField(field.item).type)
+                };
+            }
+            case field.type === "object": {
                 return {
                     type: new graphql_1.GraphQLObjectType({
                         name: fieldName,
-                        fields: mapToGraphQLType(fieldName, field.children, currentContext)
+                        fields: mapToGraphQLType(fieldName, field.fields, currentContext)
                     })
                 };
             }
@@ -102,7 +101,129 @@ function mapToGraphQLType(metaName, fields, context) {
         return fields;
     }, {});
 }
-function graphqlRoutes(options) {
+function convertToInputType(type) {
+    if (graphql_1.isInputType(type))
+        return type;
+    else if (type instanceof graphql_1.GraphQLList)
+        return new graphql_1.GraphQLList(convertToInputType(type.ofType));
+    else if (type instanceof graphql_1.GraphQLObjectType) {
+        var fields_1 = type.getFields();
+        return new graphql_1.GraphQLInputObjectType({
+            name: "_" + type.name,
+            fields: Object.keys(fields_1).reduce(function (inputFields, fieldName) {
+                var converted = convertToInputType(fields_1[fieldName].type);
+                if (converted)
+                    inputFields[fieldName] = {
+                        type: converted,
+                    };
+                return inputFields;
+            }, {})
+        });
+    }
+    else
+        return null;
+}
+function buildGraphQLSchema(rootTypes) {
+    var _this = this;
+    return new graphql_1.GraphQLSchema({
+        query: new graphql_1.GraphQLObjectType({
+            name: "Root",
+            fields: rootTypes.reduce(function (query, type) {
+                query[type.name] = {
+                    type: new graphql_1.GraphQLList(type),
+                    resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
+                        var model;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0: return [4 /*yield*/, utils_1.getModel(type.name)];
+                                case 1:
+                                    model = _a.sent();
+                                    if (!model)
+                                        return [2 /*return*/, []];
+                                    else
+                                        return [2 /*return*/, model.find(args)];
+                                    return [2 /*return*/];
+                            }
+                        });
+                    }); }
+                };
+                return query;
+            }, {}),
+        }),
+        types: rootTypes,
+        mutation: new graphql_1.GraphQLObjectType({
+            name: "Mutation",
+            fields: rootTypes.reduce(function (mutations, type) {
+                var convertedInputType = convertToInputType(type);
+                mutations['add' + capitalize(type.name)] = {
+                    type: type,
+                    args: {
+                        payload: {
+                            type: convertedInputType
+                        }
+                    },
+                    resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
+                        var model;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0: return [4 /*yield*/, utils_1.getModel(type.name)];
+                                case 1:
+                                    model = _a.sent();
+                                    return [2 /*return*/, model.create(args.payload)];
+                            }
+                        });
+                    }); }
+                };
+                mutations['update' + capitalize(type.name)] = {
+                    type: type,
+                    args: {
+                        condition: {
+                            type: convertedInputType
+                        },
+                        payload: {
+                            type: convertedInputType
+                        }
+                    },
+                    resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
+                        var model;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0: return [4 /*yield*/, utils_1.getModel(type.name)];
+                                case 1:
+                                    model = _a.sent();
+                                    return [2 /*return*/, model.update(args.condition, args.payload).exec()];
+                            }
+                        });
+                    }); }
+                };
+                mutations['delete' + capitalize(type.name)] = {
+                    type: graphql_1.GraphQLInt,
+                    args: {
+                        condition: {
+                            type: convertedInputType
+                        }
+                    },
+                    resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
+                        var model, res;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0: return [4 /*yield*/, utils_1.getModel(type.name)];
+                                case 1:
+                                    model = _a.sent();
+                                    return [4 /*yield*/, model.remove(args.condition).exec()];
+                                case 2:
+                                    res = _a.sent();
+                                    return [2 /*return*/, res ? res.n : 0];
+                            }
+                        });
+                    }); }
+                };
+                return mutations;
+            }, {})
+        })
+    });
+}
+function makeGraphQLPlugin(options) {
     var _this = this;
     var metas = options.metas;
     var rootTypes = metas.map(function (modelMeta) {
@@ -139,63 +260,21 @@ function graphqlRoutes(options) {
             }
         });
     });
-    var schemaDef = {
-        query: new graphql_1.GraphQLObjectType({
-            name: "Root",
-            fields: rootTypes.reduce(function (query, type) {
-                query[type.name] = {
-                    type: new graphql_1.GraphQLList(type),
-                    resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
-                        var model;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0: return [4 /*yield*/, utils_1.getModel(type.name)];
-                                case 1:
-                                    model = _a.sent();
-                                    if (!model)
-                                        return [2 /*return*/, []];
-                                    else
-                                        return [2 /*return*/, model.find(args)];
-                                    return [2 /*return*/];
-                            }
-                        });
-                    }); }
-                };
-                return query;
-            }, {}),
-        }),
-        types: rootTypes
-    };
-    try {
-        var schema_1 = new graphql_1.GraphQLSchema(schemaDef);
-        return [
+    var schema = buildGraphQLSchema(rootTypes);
+    return {
+        name: "graphql",
+        register: function (server) { return server.route([
             {
                 path: "/graphql",
                 method: "post",
                 handler: function (req) { return __awaiter(_this, void 0, void 0, function () {
                     return __generator(this, function (_a) {
-                        return [2 /*return*/, graphql_1.graphql(schema_1, req.payload.query)];
+                        return [2 /*return*/, graphql_1.graphql(schema, req.payload.query)];
                     });
                 }); }
             }
-        ];
-    }
-    catch (e) {
-        return [
-            {
-                path: "/graphql",
-                method: "post",
-                handler: function (_) { return __awaiter(_this, void 0, void 0, function () {
-                    return __generator(this, function (_a) {
-                        return [2 /*return*/, {
-                                message: e.message,
-                                stack: e.stack,
-                            }];
-                    });
-                }); }
-            }
-        ];
-    }
+        ]); }
+    };
 }
-exports.graphqlRoutes = graphqlRoutes;
+exports.makeGraphQLPlugin = makeGraphQLPlugin;
 //# sourceMappingURL=graphql.js.map

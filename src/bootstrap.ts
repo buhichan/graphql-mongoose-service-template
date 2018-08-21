@@ -3,7 +3,7 @@
  */
 
 import {InitApp} from "guguder";
-import {List,Map,Record} from "immutable";
+import {List,Record} from "immutable";
 import createBrowserHistory from "history/createBrowserHistory";
 import { reducer as reduxFormReducer } from "redux-form"
 import {RouterAction, routerMiddleware, routerReducer} from "react-router-redux";

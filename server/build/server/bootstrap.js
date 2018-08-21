@@ -47,11 +47,10 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 var Hapi = require("hapi");
-var graphql_1 = require("graphql");
 var joi = require("joi");
 function bootstrap() {
     return __awaiter(this, void 0, void 0, function () {
-        var _a, _b, metaOfMeta, MetaModel, metaModelValidations, makeModelFromMeta, restfulRoutes, graphqlRoutes, connection, server, Model, metas, allMetas, modelsFromMeta, _c, _d, _e;
+        var _a, _b, MetaModel, metaModelValidations, makeModelFromMeta, metaOfMeta, restfulRoutes, makeGraphQLPlugin, connection, server, Model, metas, allMetas, modelsFromMeta, _c, _d, _e;
         return __generator(this, function (_f) {
             switch (_f.label) {
                 case 0:
@@ -73,17 +72,20 @@ function bootstrap() {
                 case 6:
                     _f.sent();
                     _f.label = 7;
-                case 7: return [4 /*yield*/, Promise.resolve().then(function () { return require("./models/meta"); })];
+                case 7: return [4 /*yield*/, Promise.resolve().then(function () { return require("./models/model"); })];
                 case 8:
-                    _b = _f.sent(), metaOfMeta = _b.metaOfMeta, MetaModel = _b.MetaModel, metaModelValidations = _b.metaModelValidations, makeModelFromMeta = _b.makeModelFromMeta;
-                    return [4 /*yield*/, Promise.resolve().then(function () { return require("./routes/restful"); })];
+                    _b = _f.sent(), MetaModel = _b.MetaModel, metaModelValidations = _b.metaModelValidations, makeModelFromMeta = _b.makeModelFromMeta;
+                    return [4 /*yield*/, Promise.resolve().then(function () { return require("./models/meta"); })];
                 case 9:
+                    metaOfMeta = (_f.sent()).metaOfMeta;
+                    return [4 /*yield*/, Promise.resolve().then(function () { return require("./routes/restful"); })];
+                case 10:
                     restfulRoutes = (_f.sent()).restfulRoutes;
                     return [4 /*yield*/, Promise.resolve().then(function () { return require("./routes/graphql"); })];
-                case 10:
-                    graphqlRoutes = (_f.sent()).graphqlRoutes;
-                    return [4 /*yield*/, Promise.resolve().then(function () { return require("./db"); })];
                 case 11:
+                    makeGraphQLPlugin = (_f.sent()).makeGraphQLPlugin;
+                    return [4 /*yield*/, Promise.resolve().then(function () { return require("./db"); })];
+                case 12:
                     connection = (_f.sent()).connection;
                     console.log("Dependencies loaded.");
                     server = new Hapi.Server({
@@ -100,10 +102,10 @@ function bootstrap() {
                         }
                     });
                     return [4 /*yield*/, MetaModel];
-                case 12:
+                case 13:
                     Model = _f.sent();
                     return [4 /*yield*/, Model.find()];
-                case 13:
+                case 14:
                     metas = _f.sent();
                     allMetas = metas.map(function (x) {
                         var meta = x.toObject();
@@ -112,7 +114,7 @@ function bootstrap() {
                     });
                     console.log("Metas loaded.");
                     return [4 /*yield*/, Promise.all(allMetas.map(makeModelFromMeta))];
-                case 14:
+                case 15:
                     modelsFromMeta = _f.sent();
                     console.log("Models loaded.");
                     allMetas.concat(metaOfMeta).map(function (meta) {
@@ -124,15 +126,16 @@ function bootstrap() {
                             }
                         }));
                     });
-                    server.route(graphqlRoutes({
-                        metas: allMetas.concat(metaOfMeta),
-                        mutations: new graphql_1.GraphQLObjectType({
-                            name: "Mutation",
-                            fields: {}
-                        })
-                    }));
+                    return [4 /*yield*/, server.register({
+                            plugin: makeGraphQLPlugin({
+                                metas: allMetas.concat(metaOfMeta),
+                                mutations: {}
+                            })
+                        })];
+                case 16:
+                    _f.sent();
                     return [4 /*yield*/, server.start()];
-                case 15:
+                case 17:
                     _f.sent();
                     server.events.on('request', function (request, event, tags) {
                         console.log(tags);
@@ -147,11 +150,11 @@ function bootstrap() {
                     });
                     console.log("Backend running in http://" + ENV.HOST + ":" + ENV.PORT);
                     console.log("Graphql API is http://" + ENV.HOST + ":" + ENV.PORT + "/graphql");
-                    console.log("To run frontend, yarn dev:fe, then go to http://localhost:10082");
+                    console.log("To see frontend, run yarn dev:fe, then go to http://localhost:10082/");
                     _d = (_c = console).log;
                     _e = "Current models: ";
                     return [4 /*yield*/, connection];
-                case 16:
+                case 18:
                     _d.apply(_c, [_e + (_f.sent()).modelNames()]);
                     return [2 /*return*/];
             }
