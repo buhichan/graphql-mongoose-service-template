@@ -1,8 +1,10 @@
-import { IMetaModel } from "../models/meta-model";
+import { IMetaModel } from "../models/meta";
 import { ServerRoute, Request } from "hapi"
 import { pipe, defaultValue, head } from "../../common/utils";
 import * as joi from "joi"
 import { getModel } from "./utils";
+import {badRequest} from "boom"
+import { ObjectID } from "mongodb";
 
 const getQuery = (name:string)=>{
     return (request:Request)=>{
@@ -25,9 +27,7 @@ type BuildRoutesOptions = {
 
 const defaultSuccessAction: (res:any)=>any=(res)=>{
     return {
-        meta:{
-            message:"ok"
-        },
+        message:"ok",
         data:res
     }
 }
@@ -35,10 +35,8 @@ const defaultSuccessAction: (res:any)=>any=(res)=>{
 const defaultFailAction = (error:Error)=>{
     console.error(error)
     return {
-        meta:{
-            message:error.message,
-            stack:process.env.NODE_ENV!=='production'?error.stack:undefined
-        },
+        message:error.message,
+        stack:process.env.NODE_ENV!=='production'?error.stack:undefined,
         data:null
     }
 }
@@ -54,6 +52,10 @@ export function restfulRoutes(options:BuildRoutesOptions):ServerRoute[]{
     const afterResponse = (res:Promise<any>)=>{
         return res.then(onSuccess,onFail)
     }
+    const failAction = (_,__,err)=>{
+        console.error(err)
+        throw err
+    }
     return [
         {
             path:`${routePrefix}${meta.name}`,
@@ -62,7 +64,9 @@ export function restfulRoutes(options:BuildRoutesOptions):ServerRoute[]{
                 async (req)=>{
                     const model = await getModel(meta.name)
                     const where = meta.fields.reduce((query,k)=>{
-                        query[k.name] = getQuery(k.name)(req)
+                        const field = getQuery(k.name)(req)
+                        if(field !== undefined)
+                            query[k.name] = field
                         return query
                     },{
                         // todo: createdAt
@@ -81,7 +85,7 @@ export function restfulRoutes(options:BuildRoutesOptions):ServerRoute[]{
                                 getQuery('skip'),
                                 head,
                                 parseInt,
-                                defaultValue(100)
+                                defaultValue(0)
                             )(req)
                         )
                     return data
@@ -95,15 +99,14 @@ export function restfulRoutes(options:BuildRoutesOptions):ServerRoute[]{
                 validate:{
                     params:{
                         id: joi.string()
-                    }
+                    },
+                    failAction
                 }
             },
             handler:pipe(
                 async (req)=>{
                     const model = await getModel(meta.name)
-                    const data = await model.find({
-                        id:getQuery("id")(req)
-                    })
+                    const data = await model.findById(head(getQuery("id")(req)))
                     return data
                 },
                 afterResponse
@@ -116,13 +119,17 @@ export function restfulRoutes(options:BuildRoutesOptions):ServerRoute[]{
                     params:{
                         id: joi.string()
                     },
-                    payload:validators.put
-                }
+                    payload:validators.put,
+                    failAction
+                },
+                response:{
+                    failAction
+                },
             },
             handler:pipe(
                 async (req)=>{
                     const model = await getModel(meta.name)
-                    const data = await model.findOneAndUpdate(req.payload,req.params)
+                    const data = await model.findByIdAndUpdate(req.params.id,req.payload)
                     return data
                 },
                 afterResponse
@@ -132,7 +139,11 @@ export function restfulRoutes(options:BuildRoutesOptions):ServerRoute[]{
             method:"post",
             options:{
                 validate:{
-                    payload:validators.post
+                    payload:validators.post,
+                    failAction
+                },
+                response:{
+                    failAction
                 }
             },
             handler:pipe(
@@ -150,13 +161,17 @@ export function restfulRoutes(options:BuildRoutesOptions):ServerRoute[]{
                 validate:{
                     params:{
                         id: joi.string()
-                    }
+                    },
+                    failAction
+                },
+                response:{
+                    failAction
                 }
             },
             handler:pipe(
                 async (req)=>{
                     const model = await getModel(meta.name)
-                    const data = await model.findOneAndRemove(req.params)
+                    const data = await model.findByIdAndRemove(req.params.id)
                     return data
                 },
                 afterResponse

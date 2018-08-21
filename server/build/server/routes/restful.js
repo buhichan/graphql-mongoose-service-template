@@ -47,19 +47,15 @@ var getQuery = function (name) {
 };
 var defaultSuccessAction = function (res) {
     return {
-        meta: {
-            message: "ok"
-        },
+        message: "ok",
         data: res
     };
 };
 var defaultFailAction = function (error) {
     console.error(error);
     return {
-        meta: {
-            message: error.message,
-            stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined
-        },
+        message: error.message,
+        stack: process.env.NODE_ENV !== 'production' ? error.stack : undefined,
         data: null
     };
 };
@@ -68,6 +64,10 @@ function restfulRoutes(options) {
     var meta = options.meta, validators = options.validators, _a = options.onSuccess, onSuccess = _a === void 0 ? defaultSuccessAction : _a, _b = options.onFail, onFail = _b === void 0 ? defaultFailAction : _b, _c = options.routePrefix, routePrefix = _c === void 0 ? "/" : _c;
     var afterResponse = function (res) {
         return res.then(onSuccess, onFail);
+    };
+    var failAction = function (_, __, err) {
+        console.error(err);
+        throw err;
     };
     return [
         {
@@ -81,14 +81,16 @@ function restfulRoutes(options) {
                         case 1:
                             model = _a.sent();
                             where = meta.fields.reduce(function (query, k) {
-                                query[k.name] = getQuery(k.name)(req);
+                                var field = getQuery(k.name)(req);
+                                if (field !== undefined)
+                                    query[k.name] = field;
                                 return query;
                             }, {
                             // todo: createdAt
                             });
                             return [4 /*yield*/, model.find(where)
                                     .limit(utils_1.pipe(getQuery('limit'), utils_1.head, parseInt, utils_1.defaultValue(100))(req))
-                                    .skip(utils_1.pipe(getQuery('skip'), utils_1.head, parseInt, utils_1.defaultValue(100))(req))];
+                                    .skip(utils_1.pipe(getQuery('skip'), utils_1.head, parseInt, utils_1.defaultValue(0))(req))];
                         case 2:
                             data = _a.sent();
                             return [2 /*return*/, data];
@@ -102,7 +104,8 @@ function restfulRoutes(options) {
                 validate: {
                     params: {
                         id: joi.string()
-                    }
+                    },
+                    failAction: failAction
                 }
             },
             handler: utils_1.pipe(function (req) { return __awaiter(_this, void 0, void 0, function () {
@@ -112,9 +115,7 @@ function restfulRoutes(options) {
                         case 0: return [4 /*yield*/, utils_2.getModel(meta.name)];
                         case 1:
                             model = _a.sent();
-                            return [4 /*yield*/, model.find({
-                                    id: getQuery("id")(req)
-                                })];
+                            return [4 /*yield*/, model.findById(utils_1.head(getQuery("id")(req)))];
                         case 2:
                             data = _a.sent();
                             return [2 /*return*/, data];
@@ -129,8 +130,12 @@ function restfulRoutes(options) {
                     params: {
                         id: joi.string()
                     },
-                    payload: validators.put
-                }
+                    payload: validators.put,
+                    failAction: failAction
+                },
+                response: {
+                    failAction: failAction
+                },
             },
             handler: utils_1.pipe(function (req) { return __awaiter(_this, void 0, void 0, function () {
                 var model, data;
@@ -139,7 +144,7 @@ function restfulRoutes(options) {
                         case 0: return [4 /*yield*/, utils_2.getModel(meta.name)];
                         case 1:
                             model = _a.sent();
-                            return [4 /*yield*/, model.findOneAndUpdate(req.payload, req.params)];
+                            return [4 /*yield*/, model.findByIdAndUpdate(req.params.id, req.payload)];
                         case 2:
                             data = _a.sent();
                             return [2 /*return*/, data];
@@ -151,7 +156,11 @@ function restfulRoutes(options) {
             method: "post",
             options: {
                 validate: {
-                    payload: validators.post
+                    payload: validators.post,
+                    failAction: failAction
+                },
+                response: {
+                    failAction: failAction
                 }
             },
             handler: utils_1.pipe(function (req) { return __awaiter(_this, void 0, void 0, function () {
@@ -175,7 +184,11 @@ function restfulRoutes(options) {
                 validate: {
                     params: {
                         id: joi.string()
-                    }
+                    },
+                    failAction: failAction
+                },
+                response: {
+                    failAction: failAction
                 }
             },
             handler: utils_1.pipe(function (req) { return __awaiter(_this, void 0, void 0, function () {
@@ -185,7 +198,7 @@ function restfulRoutes(options) {
                         case 0: return [4 /*yield*/, utils_2.getModel(meta.name)];
                         case 1:
                             model = _a.sent();
-                            return [4 /*yield*/, model.findOneAndRemove(req.params)];
+                            return [4 /*yield*/, model.findByIdAndRemove(req.params.id)];
                         case 2:
                             data = _a.sent();
                             return [2 /*return*/, data];

@@ -15,7 +15,7 @@ export async function bootstrap(){
         default:
             await import("./env/development")
     }
-    const {metaOfMeta,MetaModel,metaModelValidations,makeModelFromMeta } = await import("./models/meta-model")
+    const {metaOfMeta,MetaModel,metaModelValidations,makeModelFromMeta } = await import("./models/meta")
     const {restfulRoutes} = await import("./routes/restful")
     const {graphqlRoutes} = await import("./routes/graphql")
     const {connection} = await import("./db")
@@ -71,6 +71,7 @@ export async function bootstrap(){
     await server.start()
 
     server.events.on('request', (request, event, tags) => {
+        console.log(tags)
         if (tags.error) {
             // console.log(`Request error: ${event.error ? event.error['message'] : 'unknown'}`);
             if(request && request.response)

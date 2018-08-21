@@ -1,4 +1,15 @@
 "use strict";
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
+};
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
@@ -37,51 +48,101 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 Object.defineProperty(exports, "__esModule", { value: true });
 var graphql_1 = require("graphql");
 var utils_1 = require("./utils");
-function mapToGraphQLType(fields, addType) {
-    var findType = function (field) {
+function capitalize(str) {
+    if (!str)
+        return str;
+    return str[0].toUpperCase() + str.slice(1);
+}
+function mapToGraphQLType(metaName, fields, context) {
+    var buildField = function (field) {
+        var fieldName = metaName + capitalize(field.name);
+        var currentContext = {
+            getRef: context.getRef,
+            getValue: function (x) { return context.getValue(x)[field.name]; }
+        };
         switch (field.type) {
-            case "date": return graphql_1.GraphQLInt;
-            case "number": return graphql_1.GraphQLInt;
-            case "boolean": return graphql_1.GraphQLBoolean;
+            case "date": return { type: graphql_1.GraphQLInt };
+            case "number": return { type: graphql_1.GraphQLInt };
+            case "boolean": return { type: graphql_1.GraphQLBoolean };
+            case "enum1": return { type: new graphql_1.GraphQLEnumType({
+                    name: fieldName,
+                    values: field.enum.reduce(function (map, x) {
+                        var _a;
+                        return (__assign({}, map, (_a = {}, _a[x] = { value: x }, _a)));
+                    }, {})
+                }) };
+            case "list": return { type: new graphql_1.GraphQLList(graphql_1.GraphQLString) };
+            case "ref": return context.getRef(field.ref, currentContext.getValue);
             case "array": {
-                var type = addType(field);
-                return new graphql_1.GraphQLList(type);
+                var type = new graphql_1.GraphQLObjectType({
+                    name: fieldName,
+                    fields: mapToGraphQLType(fieldName, field.children, currentContext)
+                });
+                return {
+                    type: new graphql_1.GraphQLList(type)
+                };
             }
             case "object": {
-                return new graphql_1.GraphQLObjectType({
-                    name: field.name,
-                    fields: mapToGraphQLType(field.children, addType)
-                });
+                return {
+                    type: new graphql_1.GraphQLObjectType({
+                        name: fieldName,
+                        fields: mapToGraphQLType(fieldName, field.children, currentContext)
+                    })
+                };
             }
-            default: return graphql_1.GraphQLString;
+            default: return {
+                type: graphql_1.GraphQLString
+            };
         }
     };
     return fields.reduce(function (fields, def) {
-        fields[def.name] = {
-            type: findType(def)
-        };
+        var field = buildField(def);
+        if (field && field.type)
+            fields[def.name] = field;
         return fields;
     }, {});
 }
 function graphqlRoutes(options) {
     var _this = this;
     var metas = options.metas;
-    var types = metas.reduce(function (types, x) {
-        var addType = function (child) {
-            var newType = new graphql_1.GraphQLObjectType({
-                name: child === x ? x.name : x.name + "_" + child.name,
-                fields: mapToGraphQLType(child.fields || child.children, addType)
-            });
-            types.push(newType);
-            return newType;
-        };
-        addType(x);
-        return types;
-    }, []);
+    var rootTypes = metas.map(function (modelMeta) {
+        return new graphql_1.GraphQLObjectType({
+            name: modelMeta.name,
+            fields: function () {
+                return __assign({ _id: { type: graphql_1.GraphQLString } }, mapToGraphQLType(modelMeta.name, modelMeta.fields, {
+                    getValue: function (x) { return x; },
+                    getRef: function (refName, getValue) {
+                        var type = rootTypes.find(function (x) { return x.name === refName; });
+                        if (!type)
+                            return null;
+                        else
+                            return {
+                                type: type,
+                                resolve: function (source) { return __awaiter(_this, void 0, void 0, function () {
+                                    var id, model;
+                                    return __generator(this, function (_a) {
+                                        switch (_a.label) {
+                                            case 0:
+                                                id = getValue(source);
+                                                if (!id)
+                                                    return [2 /*return*/, null];
+                                                return [4 /*yield*/, utils_1.getModel(refName)];
+                                            case 1:
+                                                model = _a.sent();
+                                                return [2 /*return*/, model.findById(id)];
+                                        }
+                                    });
+                                }); }
+                            };
+                    }
+                }));
+            }
+        });
+    });
     var schemaDef = {
         query: new graphql_1.GraphQLObjectType({
             name: "Root",
-            fields: types.reduce(function (query, type) {
+            fields: rootTypes.reduce(function (query, type) {
                 query[type.name] = {
                     type: new graphql_1.GraphQLList(type),
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
@@ -103,7 +164,7 @@ function graphqlRoutes(options) {
                 return query;
             }, {}),
         }),
-        types: types
+        types: rootTypes
     };
     try {
         var schema_1 = new graphql_1.GraphQLSchema(schemaDef);

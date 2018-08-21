@@ -73,7 +73,7 @@ function bootstrap() {
                 case 6:
                     _f.sent();
                     _f.label = 7;
-                case 7: return [4 /*yield*/, Promise.resolve().then(function () { return require("./models/meta-model"); })];
+                case 7: return [4 /*yield*/, Promise.resolve().then(function () { return require("./models/meta"); })];
                 case 8:
                     _b = _f.sent(), metaOfMeta = _b.metaOfMeta, MetaModel = _b.MetaModel, metaModelValidations = _b.metaModelValidations, makeModelFromMeta = _b.makeModelFromMeta;
                     return [4 /*yield*/, Promise.resolve().then(function () { return require("./routes/restful"); })];
@@ -135,6 +135,7 @@ function bootstrap() {
                 case 15:
                     _f.sent();
                     server.events.on('request', function (request, event, tags) {
+                        console.log(tags);
                         if (tags.error) {
                             // console.log(`Request error: ${event.error ? event.error['message'] : 'unknown'}`);
                             if (request && request.response)

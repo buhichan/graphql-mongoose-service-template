@@ -8,6 +8,7 @@
     "url": "git@github.com:buhi/graphql-mongoose-service-template.git"
   },
   "scripts": {
+    "push":"git push origin && git push origin2",
     "version": "npm run build:prod && git add ./build/current",
     "postversion": "git push && git push --tags",
     "make:prod": "NODE_ENV=production webpack --bail --progress --profile",
