@@ -780,7 +780,7 @@ graphql-language-service-utils@0.0.17:
     graphql "^0.10.1"
     graphql-language-service-types "0.0.21"
 
-graphql@0.13.2:
+graphql@0.13.2, graphql@^0.13.2:
   version "0.13.2"
   resolved "http://registry.npm.taobao.org/graphql/download/graphql-0.13.2.tgz#4c740ae3c222823e7004096f832e7b93b2108270"
   dependencies:
