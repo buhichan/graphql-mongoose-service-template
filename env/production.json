@@ -1,5 +1,0 @@
-{
-    "API_URL":"/api",
-    "MONGODB":"mongodb://localhost:27017",
-    "SERVICE_WORKER_ON":false
-}

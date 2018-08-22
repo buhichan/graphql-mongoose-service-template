@@ -12,10 +12,11 @@
     "removeComments": false,
     "jsx": "react",
     "noImplicitAny": false,
+    "watch": true,
+    "outDir": "./build",
     "lib":["es6","scripthost","dom","es2016.array.include","es2015.promise","esnext.asynciterable"]
   },
   "include":[
     "src",
-    "./declarations.d"
   ]
 }

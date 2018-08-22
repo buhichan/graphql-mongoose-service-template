@@ -1,33 +1,29 @@
 {
-  "name": "graphql-mongoose-service-template",
+  "name": "graphql-mongoose-connector",
   "version": "1.0.0",
-  "description": "graphql-mongoose-service-template",
+  "description": "graphql-mongoose-connector",
   "main": "build/index.js",
   "repository": {
     "type": "git",
     "url": "git@github.com:buhi/graphql-mongoose-service-template.git"
   },
+  "keywords": [
+    "graphql"
+  ],
   "scripts": {
     "push": "git push origin && git push origin2",
     "version": "npm run build:prod && git add ./build/current",
     "postversion": "git push && git push --tags",
     "make:prod": "NODE_ENV=production webpack --bail --progress --profile",
     "make:prerelease": "NODE_ENV=prerelease webpack --bail --progress --profile",
-    "dev": "NODE_ENV=development node ./server/build/server/index.js",
-    "dev:fe": "NODE_ENV=development node ./index.js",
+    "dev": "NODE_ENV=development node ./demo/build/demo/demo.js",
     "build:prod": "npm run make:prod && (rm -rf build/current || true) && mv build/`date +'%Y-%m-%d-production'` build/current && cp -R ./assets ./build/current ",
     "build:prerelease": "npm run make:prerelease && (rm -rf build/prerelease || true) && mv build/`date +'%Y-%m-%d-test'` build/prerelease"
   },
-  "dependencies": {
-    "express-graphql": "^0.6.12",
-    "graphiql": "^0.11.5",
-    "graphql": "^0.11.7",
-    "hapi": "^17.5.3",
-    "mongoose": "^5.2.9"
+  "peerDependencies": {
+    "hapi": "*",
+    "mongoose": "^5.*"
   },
-  "keywords": [
-    "graphql_test"
-  ],
   "author": "buhi",
   "license": "MIT",
   "devDependencies": {
@@ -35,34 +31,11 @@
     "@types/hapi": "^17.0.18",
     "@types/mongoose": "^5.2.6",
     "@types/node": "6.0.53",
-    "@types/react-dom": "15.5.1",
-    "@types/react-redux": "4.4.47",
-    "@types/react-router-redux": "4.0.43",
-    "@types/redux-form": "7.0.1",
-    "ag-grid-presets": "git+ssh://git@gitlab.ucloudadmin.com:buhi/ag-grid-material-preset.git",
     "antd": "^3.8.2",
-    "es6-promise": "^4.0.3",
-    "guguder": "git+ssh://git@gitlab.ucloudadmin.com:buhi/guguder.git",
-    "guguder-webpack-config": "git+ssh://git@gitlab.ucloudadmin.com:buhi/guguder-webpack-config.git",
-    "intl": "^1.2.5",
-    "moment": "^2.22.2",
-    "normalize.css": "^5.0.0",
-    "null-loader": "^0.1.1",
-    "react-jss": "6.1.1",
-    "react-router": "^4.2.0",
-    "react-router-dom": "^4.2.2",
-    "redux-form": "^7.1.1",
-    "redux-restful-resource": "buhichan/redux-restful-resource",
-    "redux-schema-form": "buhichan/redux-schema-form",
+    "hapi": "^17.5.3",
+    "hapi-plugin-graphiql": "^2.0.5",
+    "mongoose": "^5.2.9",
     "typescript": "^3.0.1",
-    "webpack": "^4.16.5",
-    "webpack-dev-middleware": "^1.10.1",
-    "wepback": "^1.0.0",
-    "whatwg-fetch": "^2.0.1"
-  },
-  "resolutions": {
-    "immutable": "4.0.0-rc.9",
-    "@types/react": "^16.*",
-    "@types/react-dom": "^16.*"
+    "wepback": "^1.0.0"
   }
 }
