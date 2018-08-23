@@ -6,7 +6,7 @@ import { Mongoose } from "mongoose";
 import graphiql from "./graphiql";
 
 export async function bootstrap(){
-    const {makeMetaModel,metaModelValidations,makeModelFromMeta,metaOfMeta,restfulRoutes,makeGraphQLHandler } = await import("../src")
+    const {makeMetaModel,metaModelValidations,makeModelFromMeta,metaOfMeta,restfulRoutes,makeGraphQLPlugin } = await import("../src")
 
     console.log(`Dependencies loaded.`)
 
@@ -50,11 +50,30 @@ export async function bootstrap(){
     })
 
     await server.register({
-        plugin:makeGraphQLHandler({
+        plugin:makeGraphQLPlugin({
             metas:allMetas.concat(metaOfMeta),
             connection,
             mutations:{
-    
+                customAction:{
+                    args:{
+                        name:{
+                            meta:{
+                                type:"string",
+                                name:"Name",
+                                label:"Name"
+                            },
+                            defaultValue:"world"
+                        }
+                    },
+                    returns:{
+                        type:"string",
+                        name:"string",
+                        label:"string"
+                    },
+                    resolve:(args)=>{
+                        return "hello "+args.name
+                    }
+                }
             }
         })
     })

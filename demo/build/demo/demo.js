@@ -52,12 +52,12 @@ var mongoose_1 = require("mongoose");
 var graphiql_1 = require("./graphiql");
 function bootstrap() {
     return __awaiter(this, void 0, void 0, function () {
-        var _a, makeMetaModel, metaModelValidations, makeModelFromMeta, metaOfMeta, restfulRoutes, makeGraphQLHandler, server, connection, MetaModel, metas, allMetas, modelsFromMeta, _b, _c, _d;
+        var _a, makeMetaModel, metaModelValidations, makeModelFromMeta, metaOfMeta, restfulRoutes, makeGraphQLPlugin, server, connection, MetaModel, metas, allMetas, modelsFromMeta, _b, _c, _d;
         return __generator(this, function (_e) {
             switch (_e.label) {
                 case 0: return [4 /*yield*/, Promise.resolve().then(function () { return require("../src"); })];
                 case 1:
-                    _a = _e.sent(), makeMetaModel = _a.makeMetaModel, metaModelValidations = _a.metaModelValidations, makeModelFromMeta = _a.makeModelFromMeta, metaOfMeta = _a.metaOfMeta, restfulRoutes = _a.restfulRoutes, makeGraphQLHandler = _a.makeGraphQLHandler;
+                    _a = _e.sent(), makeMetaModel = _a.makeMetaModel, metaModelValidations = _a.metaModelValidations, makeModelFromMeta = _a.makeModelFromMeta, metaOfMeta = _a.metaOfMeta, restfulRoutes = _a.restfulRoutes, makeGraphQLPlugin = _a.makeGraphQLPlugin;
                     console.log("Dependencies loaded.");
                     server = new Hapi.Server({
                         host: "0.0.0.0",
@@ -104,10 +104,31 @@ function bootstrap() {
                         }));
                     });
                     return [4 /*yield*/, server.register({
-                            plugin: makeGraphQLHandler({
+                            plugin: makeGraphQLPlugin({
                                 metas: allMetas.concat(metaOfMeta),
                                 connection: connection,
-                                mutations: {}
+                                mutations: {
+                                    customAction: {
+                                        args: {
+                                            name: {
+                                                meta: {
+                                                    type: "string",
+                                                    name: "Name",
+                                                    label: "Name"
+                                                },
+                                                defaultValue: "world"
+                                            }
+                                        },
+                                        returns: {
+                                            type: "string",
+                                            name: "string",
+                                            label: "string"
+                                        },
+                                        resolve: function (args) {
+                                            return "hello " + args.name;
+                                        }
+                                    }
+                                }
                             })
                         })];
                 case 6:

@@ -2,7 +2,7 @@ import { IMeta } from "../models/meta";
 import { ServerRoute, Request } from "hapi"
 import { pipe, defaultValue, head } from "../utils";
 import * as joi from "joi"
-import { makeModelGetter } from "./utils";
+import { makeModelGetter } from "../utils";
 import { Connection } from "mongoose";
 
 const getQuery = (name:string)=>{

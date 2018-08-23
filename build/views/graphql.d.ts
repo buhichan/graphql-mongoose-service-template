@@ -1,4 +1,5 @@
 import { IMeta } from "../models/meta";
+import { GraphQLSchema } from "graphql";
 import { Plugin } from "hapi";
 import { Connection } from "mongoose";
 declare type CustomMutationMeta<Args extends {
@@ -20,5 +21,6 @@ declare type GraphqlPluginOptions = {
         [name: string]: CustomMutationMeta<any>;
     };
 };
+export declare function makeGraphQLSchema(metas: IMeta[], mutationMetas: GraphqlPluginOptions['mutations'], connection: Connection): GraphQLSchema;
 export declare function makeGraphQLPlugin(options: GraphqlPluginOptions): Plugin<{}>;
 export {};

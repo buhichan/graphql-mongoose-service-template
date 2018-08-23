@@ -1,4 +1,11 @@
+import { Connection } from "mongoose";
 
+export const makeModelGetter = (connection:Connection)=>(metaName:string)=>{
+    const Model = connection.models[metaName]
+    if(!Model)
+        return null
+    return Model
+}
 
 export function pipe(...args:Function[]):any {
     return first=>(
@@ -9,6 +16,18 @@ export function pipe(...args:Function[]):any {
         )
         : first
     );
+}
+
+export function deepGet(obj:any, path:string[]){
+    let p = obj
+    while(path.length > 0){
+        const seg = path.shift()
+        if(seg && p)
+            p = p[seg]
+        else
+            return null
+    }
+    return p
 }
 
 export function defaultValue(defaultV:any){
