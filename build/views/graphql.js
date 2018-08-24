@@ -213,13 +213,22 @@ function makeGraphQLSchema(options) {
                 };
                 return args;
             }, {}),
-            resolve: function (_, args) {
-                return mutationMeta.resolve(args).then(function (res) {
-                    if (onMutation[mutationName])
-                        onMutation[mutationName](args, res);
-                    return res;
+            resolve: function (_, args) { return __awaiter(_this, void 0, void 0, function () {
+                var res;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0: return [4 /*yield*/, mutationMeta.resolve(args)];
+                        case 1:
+                            res = _a.sent();
+                            if (!onMutation[mutationName]) return [3 /*break*/, 3];
+                            return [4 /*yield*/, onMutation[mutationName](args, res)];
+                        case 2:
+                            _a.sent();
+                            _a.label = 3;
+                        case 3: return [2 /*return*/, res];
+                    }
                 });
-            }
+            }); }
         };
         return customMutations;
     }, {});
@@ -263,17 +272,21 @@ function makeGraphQLSchema(options) {
                         }
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
-                        var model;
+                        var model, res;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [2 /*return*/, model.create(args.payload).then(function (res) {
-                                            if (onMutation[addModelMutationName])
-                                                onMutation[addModelMutationName](args, res);
-                                            return res;
-                                        })];
+                                    return [4 /*yield*/, model.create(args.payload)];
+                                case 2:
+                                    res = _a.sent();
+                                    if (!onMutation[addModelMutationName]) return [3 /*break*/, 4];
+                                    return [4 /*yield*/, onMutation[addModelMutationName](args, res)];
+                                case 3:
+                                    _a.sent();
+                                    _a.label = 4;
+                                case 4: return [2 /*return*/, res];
                             }
                         });
                     }); }
@@ -290,17 +303,21 @@ function makeGraphQLSchema(options) {
                         }
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
-                        var model;
+                        var model, res;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [2 /*return*/, model.update(args.condition, args.payload).exec().then(function (res) {
-                                            if (onMutation[updateModelMutationName])
-                                                onMutation[updateModelMutationName](args, res);
-                                            return res;
-                                        })];
+                                    return [4 /*yield*/, model.update(args.condition, args.payload).exec()];
+                                case 2:
+                                    res = _a.sent();
+                                    if (!onMutation[updateModelMutationName]) return [3 /*break*/, 4];
+                                    return [4 /*yield*/, onMutation[updateModelMutationName](args, res)];
+                                case 3:
+                                    _a.sent();
+                                    _a.label = 4;
+                                case 4: return [2 /*return*/, res];
                             }
                         });
                     }); }
@@ -324,9 +341,12 @@ function makeGraphQLSchema(options) {
                                 case 2:
                                     deleteResult = _a.sent();
                                     res = deleteResult ? deleteResult.n : 0;
-                                    if (onMutation[deleteModelMutationName])
-                                        onMutation[deleteModelMutationName](args, res);
-                                    return [2 /*return*/, res];
+                                    if (!onMutation[deleteModelMutationName]) return [3 /*break*/, 4];
+                                    return [4 /*yield*/, onMutation[deleteModelMutationName](args, res)];
+                                case 3:
+                                    _a.sent();
+                                    _a.label = 4;
+                                case 4: return [2 /*return*/, res];
                             }
                         });
                     }); }

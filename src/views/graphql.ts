@@ -13,7 +13,7 @@ type CustomMutationMeta<Args extends {
 } = {}> = {
     args:Args,
     returns?:IMeta,
-    resolve:(args:{[name in keyof Args]:any})=>any|Promise<any>
+    resolve:(args:{[name in keyof Args]:any})=>any
 }
 
 type GraphqlPluginOptions = {
@@ -183,12 +183,11 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 }
                 return args
             },{} as GraphQLFieldConfigArgumentMap),
-            resolve:(_,args)=>{
-                return mutationMeta.resolve(args).then(res=>{
-                    if(onMutation[mutationName])
-                        onMutation[mutationName](args,res)
-                    return res
-                })
+            resolve:async (_,args)=>{
+                const res = await mutationMeta.resolve(args)
+                if(onMutation[mutationName])
+                    await onMutation[mutationName](args,res)
+                return res
             }
         }
         return customMutations
@@ -227,11 +226,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            return model.create(args.payload).then(res=>{
-                                if(onMutation[addModelMutationName])
-                                    onMutation[addModelMutationName](args,res)
-                                return res
-                            })
+                            const res = await model.create(args.payload)
+                            if(onMutation[addModelMutationName])
+                                await onMutation[addModelMutationName](args,res)
+                            return res
                         }
                     }
                     const updateModelMutationName = 'update'+capitalize(meta.name)
@@ -247,11 +245,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            return model.update(args.condition,args.payload).exec().then(res=>{
-                                if(onMutation[updateModelMutationName])
-                                    onMutation[updateModelMutationName](args,res)
-                                return res
-                            })
+                            const res = await model.update(args.condition,args.payload).exec()
+                            if(onMutation[updateModelMutationName])
+                                await onMutation[updateModelMutationName](args,res)
+                            return res
                         }
                     }
                     const deleteModelMutationName = 'delete'+capitalize(meta.name)
@@ -267,7 +264,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                             const deleteResult = await model.deleteMany(args.condition).exec()
                             const res = deleteResult ? deleteResult.n : 0
                             if(onMutation[deleteModelMutationName])
-                                onMutation[deleteModelMutationName](args,res)
+                                await onMutation[deleteModelMutationName](args,res)
                             return res
                         }
                     }
