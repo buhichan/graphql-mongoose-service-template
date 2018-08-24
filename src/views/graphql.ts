@@ -13,7 +13,7 @@ type CustomMutationMeta<Args extends {
 } = {}> = {
     args:Args,
     returns?:IMeta,
-    resolve:(args:{[name in keyof Args]:any})=>any|Promise<any>
+    resolve:(args:{[name in keyof Args]:any})=>any
 }
 
 type GraphqlPluginOptions = {
@@ -46,6 +46,8 @@ function mapMetaToField(fieldMeta:IMeta,context:TypeMapperContext,path:string[])
     const field:GraphQLFieldConfig<void,void> = {
         type:mapMetaToOutputType(fieldMeta, context, path)
     }
+    if(!fieldMeta.type)
+        return null
     if(fieldMeta.type === 'ref' && fieldMeta.ref){
         field.resolve = context.getResolver(fieldMeta.ref,path)
     }
@@ -55,8 +57,10 @@ function mapMetaToField(fieldMeta:IMeta,context:TypeMapperContext,path:string[])
     return field
 }
 
-function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]):GraphQLOutputType{
+function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]):GraphQLOutputType|null{
     switch(true){
+        case !field:
+            return null
         case (field.enum instanceof Array && field.enum.length > 0):{
             if(!context.enumTypePoll[field.name]){
                 context.enumTypePoll[field.name] = new GraphQLEnumType({
@@ -72,7 +76,12 @@ function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]
             return context.outputObjectTypePool[field.ref]
         }
         case field.type==="boolean": return GraphQLBoolean
-        case field.type==="array": return new GraphQLList(mapMetaToOutputType(field.item,context,path.concat(field.name)))
+        case field.type==="array": {
+            const item = mapMetaToOutputType(field.item,context,path.concat(field.name))
+            if(!item)
+                return null
+            return new GraphQLList(item)
+        }
         case field.type==="object" && field.fields instanceof Array && field.fields.length > 0: {
             if(!context.outputObjectTypePool[field.name])
                 context.outputObjectTypePool[field.name] = new GraphQLObjectType({
@@ -91,7 +100,9 @@ function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]
     }
 }
 
-function mapMetaToInputType(meta:IMeta,context:TypeMapperContext):GraphQLInputType{
+function mapMetaToInputType(meta:IMeta,context:TypeMapperContext):GraphQLInputType|null{
+    if(!meta)
+        return null
     if(meta.type === 'ref')
         return GraphQLString
     else if(meta.type==='object'){
@@ -110,8 +121,12 @@ function mapMetaToInputType(meta:IMeta,context:TypeMapperContext):GraphQLInputTy
 
         return context.inputObjectTypePool[meta.name]
     }
-    else if(meta.type==='array')
-        return new GraphQLList(mapMetaToInputType(meta.item,context))
+    else if(meta.type==='array'){
+        const item = mapMetaToInputType(meta.item,context)
+        if(!item)
+            return null
+        return new GraphQLList(item)
+    }
         
     const type = mapMetaToOutputType(meta, context, [])
     if(isInputType(type))
@@ -153,7 +168,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         inputObjectTypePool:{},
         outputObjectTypePool:{}
     }
-    metas = metas.filter(x=>x.type==="object").map(modelMeta=>{
+    metas = metas.filter(x=>x && x.type==="object").map(modelMeta=>{
         if(!modelMeta.fields.some(x=>x.name==="_id"))
             return {
                 ...modelMeta,
@@ -177,18 +192,18 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             type:!mutationMeta.returns ? GraphQLBoolean : mapMetaToOutputType(mutationMeta.returns, context, []),
             args:Object.keys(mutationMeta.args).reduce((args,argName)=>{
                 const argMeta = mutationMeta.args[argName]
-                args[argName] = {
-                    type: mapMetaToInputType(argMeta.meta, context),
-                    defaultValue: mutationMeta.args[argName].defaultValue
-                }
+                if(argMeta.meta)
+                    args[argName] = {
+                        type: mapMetaToInputType(argMeta.meta, context),
+                        defaultValue: mutationMeta.args[argName].defaultValue
+                    }
                 return args
             },{} as GraphQLFieldConfigArgumentMap),
-            resolve:(_,args)=>{
-                return mutationMeta.resolve(args).then(res=>{
-                    if(onMutation[mutationName])
-                        onMutation[mutationName](args,res)
-                    return res
-                })
+            resolve:async (_,args)=>{
+                const res = await mutationMeta.resolve(args)
+                if(onMutation[mutationName])
+                    await onMutation[mutationName](args,res)
+                return res
             }
         }
         return customMutations
@@ -227,11 +242,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            return model.create(args.payload).then(res=>{
-                                if(onMutation[addModelMutationName])
-                                    onMutation[addModelMutationName](args,res)
-                                return res
-                            })
+                            const res = await model.create(args.payload)
+                            if(onMutation[addModelMutationName])
+                                await onMutation[addModelMutationName](args,res)
+                            return res
                         }
                     }
                     const updateModelMutationName = 'update'+capitalize(meta.name)
@@ -247,11 +261,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            return model.update(args.condition,args.payload).exec().then(res=>{
-                                if(onMutation[updateModelMutationName])
-                                    onMutation[updateModelMutationName](args,res)
-                                return res
-                            })
+                            const res = await model.update(args.condition,args.payload).exec()
+                            if(onMutation[updateModelMutationName])
+                                await onMutation[updateModelMutationName](args,res)
+                            return res
                         }
                     }
                     const deleteModelMutationName = 'delete'+capitalize(meta.name)
@@ -267,7 +280,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                             const deleteResult = await model.deleteMany(args.condition).exec()
                             const res = deleteResult ? deleteResult.n : 0
                             if(onMutation[deleteModelMutationName])
-                                onMutation[deleteModelMutationName](args,res)
+                                await onMutation[deleteModelMutationName](args,res)
                             return res
                         }
                     }

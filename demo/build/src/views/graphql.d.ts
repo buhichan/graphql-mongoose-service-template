@@ -11,7 +11,7 @@ declare type CustomMutationMeta<Args extends {
     returns?: IMeta;
     resolve: (args: {
         [name in keyof Args]: any;
-    }) => any | Promise<any>;
+    }) => any;
 };
 declare type GraphqlPluginOptions = {
     metas: IMeta[];
