@@ -77,10 +77,10 @@ function mapMetaToField(fieldMeta, context, path) {
     var field = {
         type: mapMetaToOutputType(fieldMeta, context, path)
     };
-    if (fieldMeta.type === 'ref') {
+    if (fieldMeta.type === 'ref' && fieldMeta.ref) {
         field.resolve = context.getResolver(fieldMeta.ref, path);
     }
-    if (fieldMeta.type === 'array' && fieldMeta.item.type === 'ref') {
+    if (fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref) {
         field.resolve = context.getResolver(fieldMeta.item.ref, path);
     }
     return field;
@@ -149,8 +149,9 @@ function mapMetaToInputType(meta, context) {
     else
         return null;
 }
-function makeGraphQLSchema(metas, mutationMetas, connection) {
+function makeGraphQLSchema(options) {
     var _this = this;
+    var connection = options.connection, metas = options.metas, mutationMetas = options.mutations, onMutation = options.onMutation;
     var getModel = utils_1.makeModelGetter(connection);
     var getResolver = function (refName, path) {
         return function (source) { return __awaiter(_this, void 0, void 0, function () {
@@ -200,9 +201,9 @@ function makeGraphQLSchema(metas, mutationMetas, connection) {
     var rootTypes = metas.map(function (modelMeta) {
         return mapMetaToOutputType(modelMeta, context, []);
     });
-    var customMutations = Object.keys(mutationMetas).reduce(function (mutations, mutationName) {
+    var customMutations = Object.keys(mutationMetas).reduce(function (customMutations, mutationName) {
         var mutationMeta = mutationMetas[mutationName];
-        mutations[mutationName] = {
+        customMutations[mutationName] = {
             type: !mutationMeta.returns ? graphql_1.GraphQLBoolean : mapMetaToOutputType(mutationMeta.returns, context, []),
             args: Object.keys(mutationMeta.args).reduce(function (args, argName) {
                 var argMeta = mutationMeta.args[argName];
@@ -213,10 +214,14 @@ function makeGraphQLSchema(metas, mutationMetas, connection) {
                 return args;
             }, {}),
             resolve: function (_, args) {
-                return mutationMeta.resolve(args);
+                return mutationMeta.resolve(args).then(function (res) {
+                    if (onMutation[mutationName])
+                        onMutation[mutationName](args, res);
+                    return res;
+                });
             }
         };
-        return mutations;
+        return customMutations;
     }, {});
     var schema = new graphql_1.GraphQLSchema({
         query: new graphql_1.GraphQLObjectType({
@@ -249,7 +254,8 @@ function makeGraphQLSchema(metas, mutationMetas, connection) {
             fields: __assign({}, metas.reduce(function (mutations, meta) {
                 var modelType = context.outputObjectTypePool[meta.name];
                 var convertedInputType = mapMetaToInputType(meta, context);
-                mutations['add' + capitalize(meta.name)] = {
+                var addModelMutationName = 'add' + capitalize(meta.name);
+                mutations[addModelMutationName] = {
                     type: modelType,
                     args: {
                         payload: {
@@ -263,12 +269,17 @@ function makeGraphQLSchema(metas, mutationMetas, connection) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [2 /*return*/, model.create(args.payload)];
+                                    return [2 /*return*/, model.create(args.payload).then(function (res) {
+                                            if (onMutation[addModelMutationName])
+                                                onMutation[addModelMutationName](args, res);
+                                            return res;
+                                        })];
                             }
                         });
                     }); }
                 };
-                mutations['update' + capitalize(meta.name)] = {
+                var updateModelMutationName = 'update' + capitalize(meta.name);
+                mutations[updateModelMutationName] = {
                     type: modelType,
                     args: {
                         condition: {
@@ -285,12 +296,17 @@ function makeGraphQLSchema(metas, mutationMetas, connection) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [2 /*return*/, model.update(args.condition, args.payload).exec()];
+                                    return [2 /*return*/, model.update(args.condition, args.payload).exec().then(function (res) {
+                                            if (onMutation[updateModelMutationName])
+                                                onMutation[updateModelMutationName](args, res);
+                                            return res;
+                                        })];
                             }
                         });
                     }); }
                 };
-                mutations['delete' + capitalize(meta.name)] = {
+                var deleteModelMutationName = 'delete' + capitalize(meta.name);
+                mutations[deleteModelMutationName] = {
                     type: graphql_1.GraphQLInt,
                     args: {
                         condition: {
@@ -298,16 +314,19 @@ function makeGraphQLSchema(metas, mutationMetas, connection) {
                         }
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
-                        var model, res;
+                        var model, deleteResult, res;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [4 /*yield*/, model.remove(args.condition).exec()];
+                                    return [4 /*yield*/, model.deleteMany(args.condition).exec()];
                                 case 2:
-                                    res = _a.sent();
-                                    return [2 /*return*/, res ? res.n : 0];
+                                    deleteResult = _a.sent();
+                                    res = deleteResult ? deleteResult.n : 0;
+                                    if (onMutation[deleteModelMutationName])
+                                        onMutation[deleteModelMutationName](args, res);
+                                    return [2 /*return*/, res];
                             }
                         });
                     }); }
@@ -321,21 +340,27 @@ function makeGraphQLSchema(metas, mutationMetas, connection) {
 exports.makeGraphQLSchema = makeGraphQLSchema;
 function makeGraphQLPlugin(options) {
     var _this = this;
-    var metas = options.metas, mutations = options.mutations, connection = options.connection;
-    var schema = makeGraphQLSchema(metas, mutations, connection);
+    var schema;
+    function reload(newOptions) {
+        var finalOptions = __assign({}, options, newOptions);
+        schema = makeGraphQLSchema(finalOptions);
+    }
+    reload(options);
     return {
-        name: "graphql",
+        name: "graphql-mongoose",
         register: function (server) { return server.route([
             {
                 path: "/graphql",
                 method: "post",
                 handler: function (req) { return __awaiter(_this, void 0, void 0, function () {
                     return __generator(this, function (_a) {
+                        // console.log("currentSchemaTypes",Object.keys(schema.getTypeMap()))
                         return [2 /*return*/, graphql_1.graphql(schema, req.payload.query)];
                     });
                 }); }
             }
-        ]); }
+        ]); },
+        reload: reload
     };
 }
 exports.makeGraphQLPlugin = makeGraphQLPlugin;

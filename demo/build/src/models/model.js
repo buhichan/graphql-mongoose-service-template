@@ -7,8 +7,8 @@ var typeKey = '$type';
 exports.makeMetaModel = function (connection) { return makeModelFromMeta(connection)(meta_1.metaOfMeta); };
 function makeSchemaDefinitions(metaFields) {
     var specialFields = {
-        "array": function (metaField) { return [makeSchemaDefinition(metaField.item)]; },
-        "object": function (metaField) { return makeSchemaDefinitions(metaField.fields); },
+        "array": function (metaField) { return metaField.item ? [makeSchemaDefinition(metaField.item)] : null; },
+        "object": function (metaField) { return metaField.fields ? makeSchemaDefinitions(metaField.fields) : null; },
         "ref": function (metaField) {
             var _a;
             return (_a = {},
@@ -34,9 +34,12 @@ function makeSchemaDefinitions(metaFields) {
 }
 function makeModelFromMeta(connection) {
     return function (meta) {
-        return connection.model(meta.name, new mongoose_1.Schema(makeSchemaDefinitions(meta.fields), {
-            typeKey: typeKey
-        }), meta.name);
+        if (meta.name in connection.models)
+            delete connection.models[meta.name];
+        if (meta.fields)
+            return connection.model(meta.name, new mongoose_1.Schema(makeSchemaDefinitions(meta.fields), {
+                typeKey: typeKey
+            }), meta.name);
     };
 }
 exports.makeModelFromMeta = makeModelFromMeta;

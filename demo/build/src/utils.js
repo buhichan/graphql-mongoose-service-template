@@ -1,5 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.noop = function () { };
+exports.identity = function (x) { return x; };
 exports.makeModelGetter = function (connection) { return function (metaName) {
     var Model = connection.models[metaName];
     if (!Model)

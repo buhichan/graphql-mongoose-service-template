@@ -52,7 +52,29 @@ var mongoose_1 = require("mongoose");
 var graphiql_1 = require("./graphiql");
 function bootstrap() {
     return __awaiter(this, void 0, void 0, function () {
-        var _a, makeMetaModel, metaModelValidations, makeModelFromMeta, metaOfMeta, restfulRoutes, makeGraphQLPlugin, server, connection, MetaModel, metas, allMetas, modelsFromMeta, _b, _c, _d;
+        /**
+         * reload graphql schema when meta model is mutated.
+         */
+        function reloadMetas() {
+            return __awaiter(this, void 0, void 0, function () {
+                var _a, _b, _c;
+                return __generator(this, function (_d) {
+                    switch (_d.label) {
+                        case 0: return [4 /*yield*/, Promise.all(allMetas.map(makeModelFromMeta(connection)))];
+                        case 1:
+                            _d.sent();
+                            _b = (_a = graphQLPlugin).reload;
+                            _c = {};
+                            return [4 /*yield*/, MetaModel.find()];
+                        case 2:
+                            _b.apply(_a, [(_c.metas = (_d.sent()).map(function (x) { return x.toObject(); }).concat(metaOfMeta),
+                                    _c)]);
+                            return [2 /*return*/];
+                    }
+                });
+            });
+        }
+        var _a, makeMetaModel, metaModelValidations, makeModelFromMeta, metaOfMeta, restfulRoutes, makeGraphQLPlugin, server, connection, MetaModel, metas, allMetas, graphQLPlugin, _b, _c, _d;
         return __generator(this, function (_e) {
             switch (_e.label) {
                 case 0: return [4 /*yield*/, Promise.resolve().then(function () { return require("../src"); })];
@@ -91,7 +113,7 @@ function bootstrap() {
                     console.log("Metas loaded.");
                     return [4 /*yield*/, Promise.all(allMetas.map(makeModelFromMeta(connection)))];
                 case 5:
-                    modelsFromMeta = _e.sent();
+                    _e.sent();
                     console.log("Models loaded.");
                     allMetas.concat(metaOfMeta).map(function (meta) {
                         server.route(restfulRoutes({
@@ -103,33 +125,39 @@ function bootstrap() {
                             }
                         }));
                     });
-                    return [4 /*yield*/, server.register({
-                            plugin: makeGraphQLPlugin({
-                                metas: allMetas.concat(metaOfMeta),
-                                connection: connection,
-                                mutations: {
-                                    customAction: {
-                                        args: {
-                                            name: {
-                                                meta: {
-                                                    type: "string",
-                                                    name: "Name",
-                                                    label: "Name"
-                                                },
-                                                defaultValue: "world"
-                                            }
-                                        },
-                                        returns: {
+                    graphQLPlugin = makeGraphQLPlugin({
+                        metas: allMetas.concat(metaOfMeta),
+                        connection: connection,
+                        onMutation: {
+                            addMeta: reloadMetas,
+                            deleteMeta: reloadMetas,
+                            updateMeta: reloadMetas
+                        },
+                        mutations: {
+                            customAction: {
+                                args: {
+                                    name: {
+                                        meta: {
                                             type: "string",
-                                            name: "string",
-                                            label: "string"
+                                            name: "Name",
+                                            label: "Name"
                                         },
-                                        resolve: function (args) {
-                                            return "hello " + args.name;
-                                        }
+                                        defaultValue: "world"
                                     }
+                                },
+                                returns: {
+                                    type: "string",
+                                    name: "string",
+                                    label: "string"
+                                },
+                                resolve: function (args) {
+                                    return "hello " + args.name;
                                 }
-                            })
+                            }
+                        }
+                    });
+                    return [4 /*yield*/, server.register({
+                            plugin: graphQLPlugin
                         })];
                 case 6:
                     _e.sent();

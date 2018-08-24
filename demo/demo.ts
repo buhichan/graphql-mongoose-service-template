@@ -27,6 +27,7 @@ export async function bootstrap(){
         useNewUrlParser:true
     })
     const MetaModel = await makeMetaModel(connection)
+
     const metas = await MetaModel.find()
     const allMetas = metas.map(x=>{
         const meta = x.toObject()
@@ -35,7 +36,7 @@ export async function bootstrap(){
     })
     console.log(`Metas loaded.`)
 
-    const modelsFromMeta = await Promise.all(allMetas.map(makeModelFromMeta(connection)))
+    await Promise.all(allMetas.map(makeModelFromMeta(connection)))
     console.log(`Models loaded.`)
 
     allMetas.concat(metaOfMeta).map(meta=>{
@@ -49,33 +50,49 @@ export async function bootstrap(){
         }))
     })
 
-    await server.register({
-        plugin:makeGraphQLPlugin({
-            metas:allMetas.concat(metaOfMeta),
-            connection,
-            mutations:{
-                customAction:{
-                    args:{
-                        name:{
-                            meta:{
-                                type:"string",
-                                name:"Name",
-                                label:"Name"
-                            },
-                            defaultValue:"world"
-                        }
-                    },
-                    returns:{
-                        type:"string",
-                        name:"string",
-                        label:"string"
-                    },
-                    resolve:(args)=>{
-                        return "hello "+args.name
+    /**
+     * reload graphql schema when meta model is mutated.
+     */
+    async function reloadMetas(){
+        await Promise.all(allMetas.map(makeModelFromMeta(connection)))
+        graphQLPlugin.reload({
+            metas: (await MetaModel.find()).map(x=>x.toObject()).concat(metaOfMeta)
+        })
+    }
+
+    const graphQLPlugin = makeGraphQLPlugin({
+        metas:allMetas.concat(metaOfMeta),
+        connection,
+        onMutation:{
+            addMeta:reloadMetas,
+            deleteMeta:reloadMetas,
+            updateMeta:reloadMetas
+        },
+        mutations:{
+            customAction:{
+                args:{
+                    name:{
+                        meta:{
+                            type:"string",
+                            name:"Name",
+                            label:"Name"
+                        },
+                        defaultValue:"world"
                     }
+                },
+                returns:{
+                    type:"string",
+                    name:"string",
+                    label:"string"
+                },
+                resolve:(args)=>{
+                    return "hello "+args.name
                 }
             }
-        })
+        }
+    })
+    await server.register({
+        plugin:graphQLPlugin
     })
 
     await server.start()

@@ -11,9 +11,9 @@ export interface TypedDocument<T> extends Document {
 export const makeMetaModel = (connection:Connection)=>makeModelFromMeta(connection)(metaOfMeta)
 
 function makeSchemaDefinitions (metaFields:IMeta[]){
-    const specialFields:{[type in FieldTypes]?:(fieldMeta:IMeta)=>SchemaTypeOpts<any>} = {
-        "array":metaField=>[makeSchemaDefinition(metaField.item)],
-        "object":metaField=>makeSchemaDefinitions(metaField.fields),
+    const specialFields:{[type:string]:(fieldMeta:IMeta)=>null|SchemaTypeOpts<any>} = {
+        "array":metaField=>metaField.item ? [makeSchemaDefinition(metaField.item)] : null,
+        "object":metaField=>metaField.fields ? makeSchemaDefinitions(metaField.fields) : null,
         "ref":metaField=>({
             [typeKey]:SchemaTypes.ObjectId,
             ref:metaField.ref
@@ -37,13 +37,16 @@ function makeSchemaDefinitions (metaFields:IMeta[]){
 
 export function makeModelFromMeta<T=any>(connection:Connection){
     return (meta:IMeta)=>{
-        return connection.model<TypedDocument<T>>(
-            meta.name,
-            new Schema(makeSchemaDefinitions(meta.fields),{
-                typeKey:typeKey
-            }),
-            meta.name
-        )
+        if(meta.name in connection.models)
+            delete connection.models[meta.name]
+        if(meta.fields)
+            return connection.model<TypedDocument<T>>(
+                meta.name,
+                new Schema(makeSchemaDefinitions(meta.fields),{
+                    typeKey:typeKey
+                }),
+                meta.name
+            )
     }
 }
 

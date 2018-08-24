@@ -2,7 +2,7 @@ import { IMeta } from "../models/meta";
 import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType, GraphQLFieldConfigArgumentMap } from "graphql";
 import { Plugin } from "hapi";
 import { Connection, Model } from "mongoose";
-import { deepGet,makeModelGetter } from "../utils";
+import { deepGet,makeModelGetter, noop, identity } from "../utils";
 // import { GraphQLSchemaConfig } from "graphql/type/schema";
 
 type CustomMutationMeta<Args extends {
@@ -21,6 +21,9 @@ type GraphqlPluginOptions = {
     connection:Connection,
     mutations:{
         [name:string]:CustomMutationMeta<any>
+    },
+    onMutation?:{
+        [mutationName:string]:(args:any,res:any)=>void
     }
 }
 
@@ -43,10 +46,10 @@ function mapMetaToField(fieldMeta:IMeta,context:TypeMapperContext,path:string[])
     const field:GraphQLFieldConfig<void,void> = {
         type:mapMetaToOutputType(fieldMeta, context, path)
     }
-    if(fieldMeta.type === 'ref'){
+    if(fieldMeta.type === 'ref' && fieldMeta.ref){
         field.resolve = context.getResolver(fieldMeta.ref,path)
     }
-    if(fieldMeta.type === 'array' && fieldMeta.item.type === 'ref'){
+    if(fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref){
         field.resolve = context.getResolver(fieldMeta.item.ref,path)
     }
     return field
@@ -117,7 +120,13 @@ function mapMetaToInputType(meta:IMeta,context:TypeMapperContext):GraphQLInputTy
         return null
 }
 
-export function makeGraphQLSchema(metas:IMeta[],mutationMetas:GraphqlPluginOptions['mutations'],connection:Connection){
+export function makeGraphQLSchema(options:GraphqlPluginOptions){
+    let {
+        connection,
+        metas,
+        mutations:mutationMetas,
+        onMutation,
+    } = options
     const getModel = makeModelGetter(connection)
     const getResolver:TypeMapperContext['getResolver'] = (refName,path)=>{
         return async (source)=>{
@@ -162,9 +171,9 @@ export function makeGraphQLSchema(metas:IMeta[],mutationMetas:GraphqlPluginOptio
     const rootTypes = metas.map(modelMeta=>{
         return mapMetaToOutputType(modelMeta,context,[]) as GraphQLObjectType
     })
-    const customMutations = Object.keys(mutationMetas).reduce((mutations,mutationName)=>{
+    const customMutations = Object.keys(mutationMetas).reduce((customMutations,mutationName)=>{
         const mutationMeta = mutationMetas[mutationName]
-        mutations[mutationName] = {
+        customMutations[mutationName] = {
             type:!mutationMeta.returns ? GraphQLBoolean : mapMetaToOutputType(mutationMeta.returns, context, []),
             args:Object.keys(mutationMeta.args).reduce((args,argName)=>{
                 const argMeta = mutationMeta.args[argName]
@@ -175,10 +184,14 @@ export function makeGraphQLSchema(metas:IMeta[],mutationMetas:GraphqlPluginOptio
                 return args
             },{} as GraphQLFieldConfigArgumentMap),
             resolve:(_,args)=>{
-                return mutationMeta.resolve(args)
+                return mutationMeta.resolve(args).then(res=>{
+                    if(onMutation[mutationName])
+                        onMutation[mutationName](args,res)
+                    return res
+                })
             }
         }
-        return mutations
+        return customMutations
     },{} as GraphQLFieldConfigMap<void,void>)
     const schema = new GraphQLSchema({
         query:new GraphQLObjectType({
@@ -204,7 +217,8 @@ export function makeGraphQLSchema(metas:IMeta[],mutationMetas:GraphqlPluginOptio
                 ...metas.reduce((mutations,meta)=>{
                     const modelType = context.outputObjectTypePool[meta.name]
                     const convertedInputType = mapMetaToInputType(meta,context)
-                    mutations['add'+capitalize(meta.name)] = {
+                    const addModelMutationName = 'add'+capitalize(meta.name)
+                    mutations[addModelMutationName] = {
                         type:modelType,
                         args:{
                             payload:{
@@ -213,10 +227,15 @@ export function makeGraphQLSchema(metas:IMeta[],mutationMetas:GraphqlPluginOptio
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            return model.create(args.payload)
+                            return model.create(args.payload).then(res=>{
+                                if(onMutation[addModelMutationName])
+                                    onMutation[addModelMutationName](args,res)
+                                return res
+                            })
                         }
                     }
-                    mutations['update'+capitalize(meta.name)] = {
+                    const updateModelMutationName = 'update'+capitalize(meta.name)
+                    mutations[updateModelMutationName] = {
                         type:modelType,
                         args:{
                             condition:{
@@ -228,10 +247,15 @@ export function makeGraphQLSchema(metas:IMeta[],mutationMetas:GraphqlPluginOptio
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            return model.update(args.condition,args.payload).exec()
+                            return model.update(args.condition,args.payload).exec().then(res=>{
+                                if(onMutation[updateModelMutationName])
+                                    onMutation[updateModelMutationName](args,res)
+                                return res
+                            })
                         }
                     }
-                    mutations['delete'+capitalize(meta.name)] = {
+                    const deleteModelMutationName = 'delete'+capitalize(meta.name)
+                    mutations[deleteModelMutationName] = {
                         type:GraphQLInt,
                         args:{
                             condition:{
@@ -240,8 +264,11 @@ export function makeGraphQLSchema(metas:IMeta[],mutationMetas:GraphqlPluginOptio
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            const res = await model.remove(args.condition).exec()
-                            return res ? res.n : 0
+                            const deleteResult = await model.deleteMany(args.condition).exec()
+                            const res = deleteResult ? deleteResult.n : 0
+                            if(onMutation[deleteModelMutationName])
+                                onMutation[deleteModelMutationName](args,res)
+                            return res
                         }
                     }
                     return mutations
@@ -254,18 +281,29 @@ export function makeGraphQLSchema(metas:IMeta[],mutationMetas:GraphqlPluginOptio
 }
 
 export function makeGraphQLPlugin(options:GraphqlPluginOptions){
-    const {metas,mutations,connection} = options
-    let schema:GraphQLSchema = makeGraphQLSchema(metas,mutations,connection)
+    let schema:GraphQLSchema
+    function reload(newOptions:Partial<GraphqlPluginOptions>){
+        const finalOptions = {
+            ...options,
+            ...newOptions
+        }
+        schema = makeGraphQLSchema(finalOptions)
+    }
+    reload(options)
     return {
-        name:"graphql",
+        name:"graphql-mongoose",
         register:server=>server.route([
             {
                 path:`/graphql`,
                 method:"post",
                 handler:async (req)=>{
+                    // console.log("currentSchemaTypes",Object.keys(schema.getTypeMap()))
                     return graphql(schema,(req.payload as any).query)
                 }
             }
-        ])
-    } as Plugin<{}>
+        ]),
+        reload
+    } as Plugin<{}> & {
+        reload:typeof reload
+    }
 }

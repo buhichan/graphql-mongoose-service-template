@@ -1,5 +1,9 @@
 import { Connection } from "mongoose";
 
+export const noop = ()=>{}
+
+export const identity = x=>x
+
 export const makeModelGetter = (connection:Connection)=>(metaName:string)=>{
     const Model = connection.models[metaName]
     if(!Model)
