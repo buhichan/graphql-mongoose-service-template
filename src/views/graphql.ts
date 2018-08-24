@@ -125,7 +125,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         connection,
         metas,
         mutations:mutationMetas,
-        onMutation,
+        onMutation = {},
     } = options
     const getModel = makeModelGetter(connection)
     const getResolver:TypeMapperContext['getResolver'] = (refName,path)=>{

@@ -151,7 +151,7 @@ function mapMetaToInputType(meta, context) {
 }
 function makeGraphQLSchema(options) {
     var _this = this;
-    var connection = options.connection, metas = options.metas, mutationMetas = options.mutations, onMutation = options.onMutation;
+    var connection = options.connection, metas = options.metas, mutationMetas = options.mutations, _a = options.onMutation, onMutation = _a === void 0 ? {} : _a;
     var getModel = utils_1.makeModelGetter(connection);
     var getResolver = function (refName, path) {
         return function (source) { return __awaiter(_this, void 0, void 0, function () {
