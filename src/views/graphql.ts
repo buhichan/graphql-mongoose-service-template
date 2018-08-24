@@ -200,51 +200,54 @@ export function makeGraphQLSchema(metas:IMeta[],mutationMetas:GraphqlPluginOptio
         types:rootTypes,
         mutation:new GraphQLObjectType({
             name:"Mutation",
-            fields:metas.reduce((mutations,meta)=>{
-                const modelType = context.outputObjectTypePool[meta.name]
-                const convertedInputType = mapMetaToInputType(meta,context)
-                mutations['add'+capitalize(meta.name)] = {
-                    type:modelType,
-                    args:{
-                        payload:{
-                            type:convertedInputType
-                        }
-                    },
-                    resolve:async (source,args,context,info)=>{
-                        const model = await getModel(meta.name)
-                        return model.create(args.payload)
-                    }
-                }
-                mutations['update'+capitalize(meta.name)] = {
-                    type:modelType,
-                    args:{
-                        condition:{
-                            type:convertedInputType
+            fields:{
+                ...metas.reduce((mutations,meta)=>{
+                    const modelType = context.outputObjectTypePool[meta.name]
+                    const convertedInputType = mapMetaToInputType(meta,context)
+                    mutations['add'+capitalize(meta.name)] = {
+                        type:modelType,
+                        args:{
+                            payload:{
+                                type:convertedInputType
+                            }
                         },
-                        payload:{
-                            type:convertedInputType
+                        resolve:async (source,args,context,info)=>{
+                            const model = await getModel(meta.name)
+                            return model.create(args.payload)
                         }
-                    },
-                    resolve:async (source,args,context,info)=>{
-                        const model = await getModel(meta.name)
-                        return model.update(args.condition,args.payload).exec()
                     }
-                }
-                mutations['delete'+capitalize(meta.name)] = {
-                    type:GraphQLInt,
-                    args:{
-                        condition:{
-                            type:convertedInputType
+                    mutations['update'+capitalize(meta.name)] = {
+                        type:modelType,
+                        args:{
+                            condition:{
+                                type:convertedInputType
+                            },
+                            payload:{
+                                type:convertedInputType
+                            }
+                        },
+                        resolve:async (source,args,context,info)=>{
+                            const model = await getModel(meta.name)
+                            return model.update(args.condition,args.payload).exec()
                         }
-                    },
-                    resolve:async (source,args,context,info)=>{
-                        const model = await getModel(meta.name)
-                        const res = await model.remove(args.condition).exec()
-                        return res ? res.n : 0
                     }
-                }
-                return mutations
-            },customMutations)
+                    mutations['delete'+capitalize(meta.name)] = {
+                        type:GraphQLInt,
+                        args:{
+                            condition:{
+                                type:convertedInputType
+                            }
+                        },
+                        resolve:async (source,args,context,info)=>{
+                            const model = await getModel(meta.name)
+                            const res = await model.remove(args.condition).exec()
+                            return res ? res.n : 0
+                        }
+                    }
+                    return mutations
+                },{}),
+                ...customMutations
+            }
         })
     })
     return schema

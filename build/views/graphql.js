@@ -246,7 +246,7 @@ function makeGraphQLSchema(metas, mutationMetas, connection) {
         types: rootTypes,
         mutation: new graphql_1.GraphQLObjectType({
             name: "Mutation",
-            fields: metas.reduce(function (mutations, meta) {
+            fields: __assign({}, metas.reduce(function (mutations, meta) {
                 var modelType = context.outputObjectTypePool[meta.name];
                 var convertedInputType = mapMetaToInputType(meta, context);
                 mutations['add' + capitalize(meta.name)] = {
@@ -313,7 +313,7 @@ function makeGraphQLSchema(metas, mutationMetas, connection) {
                     }); }
                 };
                 return mutations;
-            }, customMutations)
+            }, {}), customMutations)
         })
     });
     return schema;
