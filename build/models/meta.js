@@ -42,7 +42,7 @@ function buildMeta(nestLevel) {
             type: "string",
         }
     ];
-    if (child)
+    if (child) {
         fields.push({
             name: "fields",
             label: "字段列表",
@@ -54,6 +54,13 @@ function buildMeta(nestLevel) {
                 fields: child
             }
         });
+        fields.push({
+            name: "item",
+            label: "子项",
+            type: "object",
+            fields: child,
+        });
+    }
     return fields;
 }
 exports.metaOfMeta = {

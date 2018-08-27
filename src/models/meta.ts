@@ -54,7 +54,7 @@ function buildMeta(nestLevel:number){
             type:"string",
         }
     ]
-    if(child)
+    if(child){
         fields.push(
             {
                 name:"fields",
@@ -68,6 +68,15 @@ function buildMeta(nestLevel:number){
                 }
             }
         )
+        fields.push(
+            {
+                name:"item",
+                label:"子项",
+                type:"object",
+                fields:child,
+            }
+        )
+    }
     return fields
 }
 
