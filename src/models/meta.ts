@@ -1,3 +1,4 @@
+import { Schema } from "mongoose";
 
 export const fieldTypes = {
     "number":Number,
@@ -6,10 +7,13 @@ export const fieldTypes = {
     "ref":String,
     "array":Array,
     "object":Object,
-    "date":Date
+    "date":Date,
+    "any":Schema.Types.Mixed    
 }
 
 export type FieldTypes = keyof typeof fieldTypes
+
+export type SimpleFieldTypes = Exclude<FieldTypes, "object"|"ref"|"array" >
 
 export interface IMeta {
     name:string,

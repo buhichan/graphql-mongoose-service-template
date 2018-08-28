@@ -3,6 +3,7 @@ import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString,
 import { Plugin } from "hapi";
 import { Connection, Model } from "mongoose";
 import { deepGet,makeModelGetter, noop, identity } from "../utils";
+import { GraphQLAnyType } from "./custom-types/any";
 // import { GraphQLSchemaConfig } from "graphql/type/schema";
 
 type CustomMutationMeta<Args extends {
@@ -61,15 +62,17 @@ function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]
     switch(true){
         case !field:
             return null
-        case (field.enum instanceof Array && field.enum.length > 0):{
+        case ('enum' in field && field.enum instanceof Array && field.enum.length > 0):{
+            const enumList:string[] = field['enum'];
             if(!context.enumTypePoll[field.name]){
                 context.enumTypePoll[field.name] = new GraphQLEnumType({
                     name:path.join("_")+field.name,
-                    values:field.enum.reduce((enums,v)=>({...enums,[v]:{value:v}}),{})
+                    values:enumList.reduce((enums,v)=>({...enums,[v]:{value:v}}),{})
                 })
             }
             return context.enumTypePoll[field.name]
         }
+        case field.type==="any": return GraphQLAnyType
         case field.type==="date": return GraphQLString
         case field.type==="number": return GraphQLInt
         case field.type==="ref" && field.ref in context.outputObjectTypePool:{

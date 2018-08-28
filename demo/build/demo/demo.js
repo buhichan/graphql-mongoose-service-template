@@ -74,7 +74,7 @@ function bootstrap() {
                 });
             });
         }
-        var _a, makeMetaModel, metaModelValidations, makeModelFromMeta, metaOfMeta, restfulRoutes, makeGraphQLPlugin, server, connection, MetaModel, metas, allMetas, graphQLPlugin, _b, _c, _d;
+        var _a, makeMetaModel, metaModelValidations, makeModelFromMeta, metaOfMeta, restfulRoutes, makeGraphQLPlugin, server, uri, connection, MetaModel, metas, allMetas, graphQLPlugin, _b, _c, _d;
         return __generator(this, function (_e) {
             switch (_e.label) {
                 case 0: return [4 /*yield*/, Promise.resolve().then(function () { return require("../src"); })];
@@ -94,7 +94,8 @@ function bootstrap() {
                             stripTrailingSlash: true
                         }
                     });
-                    return [4 /*yield*/, new mongoose_1.Mongoose().createConnection("mongodb://192.168.150.135:27002/test", {
+                    uri = "mongodb://localhost:27017/graphql-test";
+                    return [4 /*yield*/, new mongoose_1.Mongoose().createConnection(uri, {
                             useNewUrlParser: true
                         })];
                 case 2:
@@ -109,6 +110,17 @@ function bootstrap() {
                         var meta = x.toObject();
                         // makeModelFromMeta(meta)
                         return meta;
+                    }).concat({
+                        name: "test",
+                        type: "object",
+                        label: "test",
+                        fields: [
+                            {
+                                name: "any",
+                                type: "any",
+                                label: "any"
+                            }
+                        ]
                     });
                     console.log("Metas loaded.");
                     return [4 /*yield*/, Promise.all(allMetas.map(makeModelFromMeta(connection)))];

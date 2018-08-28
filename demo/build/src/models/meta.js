@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+var mongoose_1 = require("mongoose");
 exports.fieldTypes = {
     "number": Number,
     "string": String,
@@ -7,7 +8,8 @@ exports.fieldTypes = {
     "ref": String,
     "array": Array,
     "object": Object,
-    "date": Date
+    "date": Date,
+    "any": mongoose_1.Schema.Types.Mixed
 };
 function buildMeta(nestLevel) {
     if (nestLevel === 0)

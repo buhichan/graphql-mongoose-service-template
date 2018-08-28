@@ -6,34 +6,34 @@ var mongoose_1 = require("mongoose");
 var typeKey = '$type';
 exports.makeMetaModel = function (connection) { return makeModelFromMeta(connection)(meta_1.metaOfMeta); };
 function makeSchemaDefinitions(metaFields) {
-    var specialFields = {
-        "array": function (metaField) {
-            if (metaField.item) {
-                var item = makeSchemaDefinition(metaField.item);
+    function makeFieldDefinition(fieldMeta) {
+        var _a;
+        switch (fieldMeta.type) {
+            case "array": {
+                var item = makeFieldDefinition(fieldMeta.item);
                 if (item)
                     return [item];
+                return null;
             }
-            return null;
-        },
-        "object": function (metaField) { return metaField.fields ? makeSchemaDefinitions(metaField.fields) : null; },
-        "ref": function (metaField) {
-            var _a;
-            return (_a = {},
-                _a[typeKey] = mongoose_1.SchemaTypes.ObjectId,
-                _a.ref = metaField.ref,
-                _a);
+            case "object":
+                return makeSchemaDefinitions(fieldMeta.fields);
+            case "ref":
+                return _a = {},
+                    _a[typeKey] = mongoose_1.SchemaTypes.ObjectId,
+                    _a.ref = fieldMeta.ref,
+                    _a;
+            default: {
+                if (fieldMeta.type in meta_1.fieldTypes)
+                    return meta_1.fieldTypes[fieldMeta.type];
+                else
+                    return null;
+            }
         }
-    };
-    function makeSchemaDefinition(metaField) {
-        if (metaField.type in specialFields)
-            return specialFields[metaField.type](metaField);
-        else if (metaField.type in meta_1.fieldTypes)
-            return meta_1.fieldTypes[metaField.type];
-        else
-            return null;
     }
+    if (!metaFields)
+        return {};
     return metaFields.reduce(function (fields, metaField) {
-        var def = makeSchemaDefinition(metaField);
+        var def = makeFieldDefinition(metaField);
         if (def)
             fields[metaField.name] = def;
         return fields;
@@ -43,7 +43,7 @@ function makeModelFromMeta(connection) {
     return function (meta) {
         if (meta.name in connection.models)
             delete connection.models[meta.name];
-        if (meta.fields) {
+        if (meta.type === 'object' && meta.fields) {
             var def = makeSchemaDefinitions(meta.fields);
             try {
                 return connection.model(meta.name, new mongoose_1.Schema(def, {

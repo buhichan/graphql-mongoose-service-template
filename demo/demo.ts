@@ -4,6 +4,7 @@ import * as Hapi from "hapi"
 import * as joi from "joi"
 import { Mongoose } from "mongoose";
 import graphiql from "./graphiql";
+import { IMeta } from "../src";
 
 export async function bootstrap(){
     const {makeMetaModel,metaModelValidations,makeModelFromMeta,metaOfMeta,restfulRoutes,makeGraphQLPlugin } = await import("../src")
@@ -23,7 +24,9 @@ export async function bootstrap(){
             stripTrailingSlash: true
         }
     });
-    const connection = await new Mongoose().createConnection("mongodb://192.168.150.135:27002/test",{
+    // const uri = "mongodb://192.168.150.135:27002/test"
+    const uri = "mongodb://localhost:27017/graphql-test"
+    const connection = await new Mongoose().createConnection(uri,{
         useNewUrlParser:true
     })
     const MetaModel = await makeMetaModel(connection)
@@ -32,7 +35,18 @@ export async function bootstrap(){
     const allMetas = metas.map(x=>{
         const meta = x.toObject()
         // makeModelFromMeta(meta)
-        return meta
+        return meta as IMeta
+    }).concat({
+        name:"test",
+        type:"object",
+        label:"test",
+        fields:[
+            {
+                name:"any",
+                type:"any",
+                label:"any"
+            }
+        ]
     })
     console.log(`Metas loaded.`)
 

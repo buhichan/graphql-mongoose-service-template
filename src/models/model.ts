@@ -11,31 +11,33 @@ export interface TypedDocument<T> extends Document {
 export const makeMetaModel = (connection:Connection)=>makeModelFromMeta(connection)(metaOfMeta)
 
 function makeSchemaDefinitions (metaFields:IMeta[]){
-    const specialFields:{[type:string]:(fieldMeta:IMeta)=>null|SchemaTypeOpts<any>} = {
-        "array":metaField=>{
-            if(metaField.item){
-                const item = makeSchemaDefinition(metaField.item)
+    function makeFieldDefinition(fieldMeta:IMeta):SchemaTypeOpts<any>{
+        switch(fieldMeta.type){
+            case "array":{
+                const item = makeFieldDefinition(fieldMeta.item)
                 if(item)
                     return [item]
+                return null   
             }
-            return null   
-        },
-        "object":metaField=>metaField.fields ? makeSchemaDefinitions(metaField.fields) : null,
-        "ref":metaField=>({
-            [typeKey]:SchemaTypes.ObjectId,
-            ref:metaField.ref
-        })
+            case "object":
+                return makeSchemaDefinitions(fieldMeta.fields)
+            case "ref":
+                return {
+                    [typeKey]:SchemaTypes.ObjectId,
+                    ref:fieldMeta.ref
+                }
+            default:{
+                if(fieldMeta.type in fieldTypes)
+                    return fieldTypes[fieldMeta.type]
+                else
+                    return null
+            }
+        }
     }
-    function makeSchemaDefinition(metaField:IMeta){
-        if(metaField.type in specialFields)
-            return specialFields[metaField.type](metaField)
-        else if(metaField.type in fieldTypes)
-            return fieldTypes[metaField.type]
-        else
-            return null
-    }
+    if(!metaFields)
+        return {}
     return metaFields.reduce((fields,metaField)=>{
-        const def = makeSchemaDefinition(metaField)
+        const def = makeFieldDefinition(metaField)
         if(def)
             fields[metaField.name] = def
         return fields
@@ -46,7 +48,7 @@ export function makeModelFromMeta<T=any>(connection:Connection){
     return (meta:IMeta)=>{
         if(meta.name in connection.models)
             delete connection.models[meta.name]
-        if(meta.fields){
+        if(meta.type==='object' && meta.fields){
             const def = makeSchemaDefinitions(meta.fields)
             try{
                 return connection.model<TypedDocument<T>>(

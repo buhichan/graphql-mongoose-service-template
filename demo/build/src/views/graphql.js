@@ -68,6 +68,7 @@ var __spread = (this && this.__spread) || function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 var graphql_1 = require("graphql");
 var utils_1 = require("../utils");
+var any_1 = require("./custom-types/any");
 function capitalize(str) {
     if (!str)
         return str;
@@ -91,11 +92,12 @@ function mapMetaToOutputType(field, context, path) {
     switch (true) {
         case !field:
             return null;
-        case (field.enum instanceof Array && field.enum.length > 0): {
+        case ('enum' in field && field.enum instanceof Array && field.enum.length > 0): {
+            var enumList = field['enum'];
             if (!context.enumTypePoll[field.name]) {
                 context.enumTypePoll[field.name] = new graphql_1.GraphQLEnumType({
                     name: path.join("_") + field.name,
-                    values: field.enum.reduce(function (enums, v) {
+                    values: enumList.reduce(function (enums, v) {
                         var _a;
                         return (__assign({}, enums, (_a = {}, _a[v] = { value: v }, _a)));
                     }, {})
@@ -103,6 +105,7 @@ function mapMetaToOutputType(field, context, path) {
             }
             return context.enumTypePoll[field.name];
         }
+        case field.type === "any": return any_1.GraphQLAnyType;
         case field.type === "date": return graphql_1.GraphQLString;
         case field.type === "number": return graphql_1.GraphQLInt;
         case field.type === "ref" && field.ref in context.outputObjectTypePool: {
