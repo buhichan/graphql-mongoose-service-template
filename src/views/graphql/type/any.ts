@@ -34,7 +34,7 @@ function parseAnyTypeLiteral(ast){
 
 export const GraphQLAnyType = new GraphQLScalarType({
   name: 'Any',
-  description: 'Arbitrary object',
+  description: 'Arbitrary type',
   parseValue: (value) => {
     return value
   },

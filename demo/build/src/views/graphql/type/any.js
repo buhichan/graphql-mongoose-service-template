@@ -34,7 +34,7 @@ function parseAnyTypeLiteral(ast) {
 }
 exports.GraphQLAnyType = new graphql_1.GraphQLScalarType({
     name: 'Any',
-    description: 'Arbitrary object',
+    description: 'Arbitrary type',
     parseValue: function (value) {
         return value;
     },
