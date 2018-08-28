@@ -36,14 +36,10 @@ export const GraphQLAnyType = new GraphQLScalarType({
   name: 'Any',
   description: 'Arbitrary object',
   parseValue: (value) => {
-    return typeof value === 'object' ? value
-      : typeof value === 'string' ? safeJSONParse(value)
-      : null
+    return value
   },
   serialize: (value) => {
-    return typeof value === 'object' ? value
-      : typeof value === 'string' ? safeJSONParse(value)
-      : null
+    return value
   },
   parseLiteral:parseAnyTypeLiteral
 })
