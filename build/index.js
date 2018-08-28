@@ -5,7 +5,10 @@ function __export(m) {
 Object.defineProperty(exports, "__esModule", { value: true });
 __export(require("./views/restful"));
 __export(require("./utils"));
-__export(require("./views/graphql"));
 __export(require("./models/meta"));
 __export(require("./models/model"));
+var graphql_1 = require("./views/graphql/graphql");
+exports.makeGraphQLPlugin = graphql_1.makeGraphQLPlugin;
+var make_schema_1 = require("./views/graphql/make-schema");
+exports.makeGraphQLSchema = make_schema_1.makeGraphQLSchema;
 //# sourceMappingURL=index.js.map

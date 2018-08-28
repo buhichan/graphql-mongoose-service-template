@@ -66,9 +66,9 @@ var __spread = (this && this.__spread) || function () {
     return ar;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+var utils_1 = require("../../utils");
 var graphql_1 = require("graphql");
-var utils_1 = require("../utils");
-var any_1 = require("./custom-types/any");
+var any_1 = require("./type/any");
 function capitalize(str) {
     if (!str)
         return str;
@@ -167,6 +167,46 @@ function mapMetaToInputType(meta, context) {
     else
         return null;
 }
+var sortEnumType = new graphql_1.GraphQLEnumType({
+    name: "SortDirection",
+    values: {
+        asc: { value: 1, description: "升序" },
+        desc: { value: -1, description: "降序" }
+    }
+});
+function makeQueryArgs(meta, context) {
+    var indexableFields = meta.fields.filter(function (x) {
+        return ['number', 'string', 'date'].includes(x.type) && x.name !== "_id";
+    });
+    var queryArgs = {
+        search: {
+            type: mapMetaToInputType(meta, context),
+            defaultValue: {}
+        },
+        limit: {
+            type: graphql_1.GraphQLInt,
+            defaultValue: 100
+        },
+        skip: {
+            type: graphql_1.GraphQLInt,
+            defaultValue: 0
+        }
+    };
+    if (indexableFields.length) {
+        queryArgs.sort = {
+            type: new graphql_1.GraphQLInputObjectType({
+                name: "_" + meta.name + "_sort",
+                fields: indexableFields.reduce(function (fields, fieldMeta) {
+                    fields[fieldMeta.name] = {
+                        type: sortEnumType
+                    };
+                    return fields;
+                }, {})
+            })
+        };
+    }
+    return queryArgs;
+}
 function makeGraphQLSchema(options) {
     var _this = this;
     var connection = options.connection, metas = options.metas, mutationMetas = options.mutations, _a = options.onMutation, onMutation = _a === void 0 ? {} : _a;
@@ -251,48 +291,14 @@ function makeGraphQLSchema(options) {
         };
         return customMutations;
     }, {});
-    var sortEnumType = new graphql_1.GraphQLEnumType({
-        name: "SortDirection",
-        values: {
-            ascending: { value: 1, description: "升序" },
-            descending: { value: -1, description: "降序" }
-        }
-    });
     var schema = new graphql_1.GraphQLSchema({
         query: new graphql_1.GraphQLObjectType({
             name: "Root",
             fields: rootTypes.reduce(function (query, type) {
                 var meta = metas.find(function (x) { return x.name === type.name; });
-                var indexableFields = meta.fields.filter(function (x) {
-                    return ['number', 'string', 'date'].includes(x.type) && x.name !== "_id";
-                });
                 query[type.name] = {
                     type: new graphql_1.GraphQLList(type),
-                    args: {
-                        search: {
-                            type: mapMetaToInputType(meta, context),
-                            defaultValue: {}
-                        },
-                        sort: {
-                            type: new graphql_1.GraphQLInputObjectType({
-                                name: "_" + type.name + "_sort",
-                                fields: indexableFields.reduce(function (fields, fieldMeta) {
-                                    fields[fieldMeta.name] = {
-                                        type: sortEnumType
-                                    };
-                                    return fields;
-                                }, {})
-                            })
-                        },
-                        limit: {
-                            type: graphql_1.GraphQLInt,
-                            defaultValue: 100
-                        },
-                        skip: {
-                            type: graphql_1.GraphQLInt,
-                            defaultValue: 0
-                        }
-                    },
+                    args: makeQueryArgs(meta, context),
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
                         var model;
                         return __generator(this, function (_a) {
@@ -416,30 +422,4 @@ function makeGraphQLSchema(options) {
     return schema;
 }
 exports.makeGraphQLSchema = makeGraphQLSchema;
-function makeGraphQLPlugin(options) {
-    var _this = this;
-    var schema;
-    function reload(newOptions) {
-        var finalOptions = __assign({}, options, newOptions);
-        schema = makeGraphQLSchema(finalOptions);
-    }
-    reload(options);
-    return {
-        name: "graphql-mongoose",
-        register: function (server) { return server.route([
-            {
-                path: "/graphql",
-                method: "post",
-                handler: function (req) { return __awaiter(_this, void 0, void 0, function () {
-                    return __generator(this, function (_a) {
-                        // console.log("currentSchemaTypes",Object.keys(schema.getTypeMap()))
-                        return [2 /*return*/, graphql_1.graphql(schema, req.payload.query)];
-                    });
-                }); }
-            }
-        ]); },
-        reload: reload
-    };
-}
-exports.makeGraphQLPlugin = makeGraphQLPlugin;
-//# sourceMappingURL=graphql.js.map
+//# sourceMappingURL=make-schema.js.map

@@ -1,32 +1,10 @@
-import { IMeta } from "../models/meta";
+import { GraphqlPluginOptions } from "./graphql";
+import { makeModelGetter, deepGet } from "../../utils";
 import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType, GraphQLFieldConfigArgumentMap } from "graphql";
-import { Plugin } from "hapi";
-import { Connection, Model } from "mongoose";
-import { deepGet,makeModelGetter, noop, identity } from "../utils";
-import { GraphQLAnyType } from "./custom-types/any";
-// import { GraphQLSchemaConfig } from "graphql/type/schema";
+import { Model } from "mongoose";
+import { IMeta } from "../../models/meta";
+import { GraphQLAnyType } from "./type/any";
 
-type CustomMutationMeta<Args extends {
-    [name:string]:{
-        meta:IMeta,
-        defaultValue?:any
-    }
-} = {}> = {
-    args:Args,
-    returns?:IMeta,
-    resolve:(args:{[name in keyof Args]:any})=>any
-}
-
-type GraphqlPluginOptions = {
-    metas:IMeta[],
-    connection:Connection,
-    mutations:{
-        [name:string]:CustomMutationMeta<any>
-    },
-    onMutation?:{
-        [mutationName:string]:(args:any,res:any)=>void
-    }
-}
 
 type TypeMapperContext = {
     getResolver:(metaName:string, path: string[])=>GraphQLFieldConfig<void,void>['resolve'],
@@ -138,6 +116,50 @@ function mapMetaToInputType(meta:IMeta,context:TypeMapperContext):GraphQLInputTy
         return null
 }
 
+
+const sortEnumType = new GraphQLEnumType({
+    name:"SortDirection",
+    values:{
+        asc:{value:1,description:"升序"},
+        desc:{value:-1,description:"降序"}
+    }
+})
+
+function makeQueryArgs(meta:IMeta,context:TypeMapperContext){
+    const indexableFields = meta.fields.filter(x=>{
+        return ['number','string','date'].includes(x.type) && x.name !== "_id"
+    })
+    const queryArgs:GraphQLFieldConfigArgumentMap = {
+        search:{
+            type:mapMetaToInputType(meta, context),
+            defaultValue:{}
+        },
+        limit:{
+            type:GraphQLInt,
+            defaultValue:100
+        },
+        skip:{
+            type:GraphQLInt,
+            defaultValue:0
+        }
+    }
+
+    if(indexableFields.length){
+        queryArgs.sort = {
+            type:new GraphQLInputObjectType({
+                name:"_"+meta.name+"_sort",
+                fields:indexableFields.reduce((fields,fieldMeta)=>{
+                    fields[fieldMeta.name] = {
+                        type:sortEnumType
+                    }
+                    return fields
+                },{})
+            })
+        }
+    }
+    return queryArgs
+}
+
 export function makeGraphQLSchema(options:GraphqlPluginOptions){
     let {
         connection,
@@ -211,18 +233,24 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         }
         return customMutations
     },{} as GraphQLFieldConfigMap<void,void>)
+
     const schema = new GraphQLSchema({
         query:new GraphQLObjectType({
             name:"Root",
             fields:rootTypes.reduce((query,type)=>{
+                const meta = metas.find(x=>x.name === type.name)
                 query[type.name] = {
                     type:new GraphQLList(type),
+                    args:makeQueryArgs(meta,context),
                     resolve:async (source,args,context,info)=>{
                         const model = await getModel(type.name)
                         if(!model)
                             return []
                         else
-                            return model.find(args)
+                            return model.find(args.search)
+                                .sort(args.sort)
+                                .limit(args.limit)
+                                .skip(args.skip)
                     }
                 }
                 return query
@@ -294,32 +322,4 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         })
     })
     return schema
-}
-
-export function makeGraphQLPlugin(options:GraphqlPluginOptions){
-    let schema:GraphQLSchema
-    function reload(newOptions:Partial<GraphqlPluginOptions>){
-        const finalOptions = {
-            ...options,
-            ...newOptions
-        }
-        schema = makeGraphQLSchema(finalOptions)
-    }
-    reload(options)
-    return {
-        name:"graphql-mongoose",
-        register:server=>server.route([
-            {
-                path:`/graphql`,
-                method:"post",
-                handler:async (req)=>{
-                    // console.log("currentSchemaTypes",Object.keys(schema.getTypeMap()))
-                    return graphql(schema,(req.payload as any).query)
-                }
-            }
-        ]),
-        reload
-    } as Plugin<{}> & {
-        reload:typeof reload
-    }
 }

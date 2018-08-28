@@ -251,12 +251,48 @@ function makeGraphQLSchema(options) {
         };
         return customMutations;
     }, {});
+    var sortEnumType = new graphql_1.GraphQLEnumType({
+        name: "SortDirection",
+        values: {
+            ascending: { value: 1, description: "升序" },
+            descending: { value: -1, description: "降序" }
+        }
+    });
     var schema = new graphql_1.GraphQLSchema({
         query: new graphql_1.GraphQLObjectType({
             name: "Root",
             fields: rootTypes.reduce(function (query, type) {
+                var meta = metas.find(function (x) { return x.name === type.name; });
+                var indexableFields = meta.fields.filter(function (x) {
+                    return ['number', 'string', 'date'].includes(x.type) && x.name !== "_id";
+                });
                 query[type.name] = {
                     type: new graphql_1.GraphQLList(type),
+                    args: {
+                        search: {
+                            type: mapMetaToInputType(meta, context),
+                            defaultValue: {}
+                        },
+                        sort: {
+                            type: new graphql_1.GraphQLInputObjectType({
+                                name: "_" + type.name + "_sort",
+                                fields: indexableFields.reduce(function (fields, fieldMeta) {
+                                    fields[fieldMeta.name] = {
+                                        type: sortEnumType
+                                    };
+                                    return fields;
+                                }, {})
+                            })
+                        },
+                        limit: {
+                            type: graphql_1.GraphQLInt,
+                            defaultValue: 100
+                        },
+                        skip: {
+                            type: graphql_1.GraphQLInt,
+                            defaultValue: 0
+                        }
+                    },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
                         var model;
                         return __generator(this, function (_a) {
@@ -267,7 +303,10 @@ function makeGraphQLSchema(options) {
                                     if (!model)
                                         return [2 /*return*/, []];
                                     else
-                                        return [2 /*return*/, model.find(args)];
+                                        return [2 /*return*/, model.find(args.search)
+                                                .sort(args.sort)
+                                                .limit(args.limit)
+                                                .skip(args.skip)];
                                     return [2 /*return*/];
                             }
                         });
