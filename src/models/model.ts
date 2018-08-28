@@ -12,7 +12,14 @@ export const makeMetaModel = (connection:Connection)=>makeModelFromMeta(connecti
 
 function makeSchemaDefinitions (metaFields:IMeta[]){
     const specialFields:{[type:string]:(fieldMeta:IMeta)=>null|SchemaTypeOpts<any>} = {
-        "array":metaField=>metaField.item ? [makeSchemaDefinition(metaField.item)] : null,
+        "array":metaField=>{
+            if(metaField.item){
+                const item = makeSchemaDefinition(metaField.item)
+                if(item)
+                    return [item]
+            }
+            return null   
+        },
         "object":metaField=>metaField.fields ? makeSchemaDefinitions(metaField.fields) : null,
         "ref":metaField=>({
             [typeKey]:SchemaTypes.ObjectId,
@@ -39,14 +46,22 @@ export function makeModelFromMeta<T=any>(connection:Connection){
     return (meta:IMeta)=>{
         if(meta.name in connection.models)
             delete connection.models[meta.name]
-        if(meta.fields)
-            return connection.model<TypedDocument<T>>(
-                meta.name,
-                new Schema(makeSchemaDefinitions(meta.fields),{
-                    typeKey:typeKey
-                }),
-                meta.name
-            )
+        if(meta.fields){
+            const def = makeSchemaDefinitions(meta.fields)
+            try{
+                return connection.model<TypedDocument<T>>(
+                    meta.name,
+                    new Schema(def,{
+                        typeKey:typeKey
+                    }),
+                    meta.name
+                )
+            }catch(e){
+                console.error('invalid meta:',meta)
+                console.error('invalid mongoose def:',def)
+                throw e
+            }
+        }
     }
 }
 

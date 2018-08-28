@@ -7,7 +7,14 @@ var typeKey = '$type';
 exports.makeMetaModel = function (connection) { return makeModelFromMeta(connection)(meta_1.metaOfMeta); };
 function makeSchemaDefinitions(metaFields) {
     var specialFields = {
-        "array": function (metaField) { return metaField.item ? [makeSchemaDefinition(metaField.item)] : null; },
+        "array": function (metaField) {
+            if (metaField.item) {
+                var item = makeSchemaDefinition(metaField.item);
+                if (item)
+                    return [item];
+            }
+            return null;
+        },
         "object": function (metaField) { return metaField.fields ? makeSchemaDefinitions(metaField.fields) : null; },
         "ref": function (metaField) {
             var _a;
@@ -36,10 +43,19 @@ function makeModelFromMeta(connection) {
     return function (meta) {
         if (meta.name in connection.models)
             delete connection.models[meta.name];
-        if (meta.fields)
-            return connection.model(meta.name, new mongoose_1.Schema(makeSchemaDefinitions(meta.fields), {
-                typeKey: typeKey
-            }), meta.name);
+        if (meta.fields) {
+            var def = makeSchemaDefinitions(meta.fields);
+            try {
+                return connection.model(meta.name, new mongoose_1.Schema(def, {
+                    typeKey: typeKey
+                }), meta.name);
+            }
+            catch (e) {
+                console.error('invalid meta:', meta);
+                console.error('invalid mongoose def:', def);
+                throw e;
+            }
+        }
     };
 }
 exports.makeModelFromMeta = makeModelFromMeta;

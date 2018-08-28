@@ -94,7 +94,7 @@ function bootstrap() {
                             stripTrailingSlash: true
                         }
                     });
-                    return [4 /*yield*/, new mongoose_1.Mongoose().createConnection("mongodb://localhost:27017/graphql-test", {
+                    return [4 /*yield*/, new mongoose_1.Mongoose().createConnection("mongodb://192.168.150.135:27002/test", {
                             useNewUrlParser: true
                         })];
                 case 2:
