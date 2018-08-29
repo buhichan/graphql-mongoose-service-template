@@ -206,12 +206,22 @@ function makeQueryArgs(meta, context) {
     }
     return queryArgs;
 }
+function convertSearchToFindOptions(search) {
+    if (search != undefined && !(search instanceof Array) && typeof search === 'object')
+        return Object.keys(search).reduce(function (findOptions, name) {
+            var newName = name;
+            if (name.startsWith("_") && name !== "_id")
+                newName = "$" + name.slice(1);
+            findOptions[newName] = convertSearchToFindOptions(search[name]);
+            return findOptions;
+        }, {});
+    return search;
+}
 function makeGraphQLSchema(options) {
     var _this = this;
     var connection = options.connection, metas = options.metas, mutationMetas = options.mutations, _a = options.onMutation, onMutation = _a === void 0 ? {} : _a;
     var getModel = utils_1.makeModelGetter(connection);
     var getResolver = function (refName, path) {
-        console.log(refName, path);
         return function (source) { return __awaiter(_this, void 0, void 0, function () {
             var id, model;
             return __generator(this, function (_a) {
@@ -245,15 +255,24 @@ function makeGraphQLSchema(options) {
         inputObjectTypePool: {},
         outputObjectTypePool: {}
     };
-    metas = metas.filter(function (x) { return x && x.type === "object"; }).map(function (modelMeta) {
-        if (!modelMeta.fields.some(function (x) { return x.name === "_id"; }))
-            return __assign({}, modelMeta, { fields: __spread([
-                    {
-                        name: "_id",
-                        type: "string",
-                        label: "id"
-                    }
-                ], modelMeta.fields) });
+    var internalFields = [
+        {
+            name: "_id",
+            label: "ID",
+            type: "string"
+        },
+        {
+            name: "createdAt",
+            label: "创建时间",
+            type: "date"
+        }, {
+            name: "updatedAt",
+            label: "更新时间",
+            type: "date"
+        }
+    ];
+    metas = metas.filter(function (x) { return x && x.type === "object" && !internalFields.some(function (f) { return f.name === x.name; }); }).map(function (modelMeta) {
+        return __assign({}, modelMeta, { fields: __spread(internalFields, modelMeta.fields) });
         return modelMeta;
     });
     var rootTypes = metas.map(function (modelMeta) {
@@ -309,7 +328,7 @@ function makeGraphQLSchema(options) {
                                     if (!model)
                                         return [2 /*return*/, []];
                                     else {
-                                        query_1 = model.find(args.search)
+                                        query_1 = model.find(convertSearchToFindOptions(args.search))
                                             .sort(args.sort)
                                             .skip(args.skip);
                                         if (args.limit)
@@ -376,7 +395,6 @@ function makeGraphQLSchema(options) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    console.log(args);
                                     return [4 /*yield*/, model.updateMany(args.condition, args.payload).exec()];
                                 case 2:
                                     updateResult = _a.sent();

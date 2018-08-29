@@ -47,7 +47,11 @@ function makeModelFromMeta(connection) {
             var def = makeSchemaDefinitions(meta.fields);
             try {
                 return connection.model(meta.name, new mongoose_1.Schema(def, {
-                    typeKey: typeKey
+                    typeKey: typeKey,
+                    timestamps: {
+                        createdAt: "createdAt",
+                        updatedAt: "updatedAt"
+                    }
                 }), meta.name);
             }
             catch (e) {

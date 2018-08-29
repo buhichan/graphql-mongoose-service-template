@@ -159,6 +159,18 @@ function makeQueryArgs(meta:IMeta,context:TypeMapperContext){
     return queryArgs
 }
 
+function convertSearchToFindOptions(search:any){
+    if(search != undefined && !(search instanceof Array) && typeof search === 'object')
+        return Object.keys(search).reduce((findOptions,name)=>{
+            let newName = name
+            if(name.startsWith("_") && name !== "_id")
+                newName = "$"+name.slice(1)
+            findOptions[newName] = convertSearchToFindOptions(search[name])
+            return findOptions
+        },{})
+    return search
+}
+
 export function makeGraphQLSchema(options:GraphqlPluginOptions){
     let {
         connection,
@@ -168,7 +180,6 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
     } = options
     const getModel = makeModelGetter(connection)
     const getResolver:TypeMapperContext['getResolver'] = (refName,path)=>{
-        console.log(refName,path)
         return async (source)=>{
             const id = deepGet(source,path)
             if(!id)
@@ -193,16 +204,27 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         inputObjectTypePool:{},
         outputObjectTypePool:{}
     }
-    metas = metas.filter(x=>x && x.type==="object").map(modelMeta=>{
-        if(!modelMeta.fields.some(x=>x.name==="_id"))
+    const internalFields:IMeta[] = [
+        {
+            name:"_id",
+            label:"ID",
+            type:"string"
+        },
+        {
+            name:"createdAt",
+            label:"创建时间",
+            type:"date"
+        },{
+            name:"updatedAt",
+            label:"更新时间",
+            type:"date"
+        }
+    ]
+    metas = metas.filter(x=>x && x.type==="object" && !internalFields.some(f=>f.name === x.name)).map(modelMeta=>{
             return {
                 ...modelMeta,
                 fields:[
-                    {
-                        name:"_id",
-                        type:"string",
-                        label:"id"
-                    } as IMeta,
+                    ...internalFields,
                     ...modelMeta.fields,
                 ]
             }
@@ -247,7 +269,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         if(!model)
                             return []
                         else {
-                            const query = model.find(args.search)
+                            const query = model.find(convertSearchToFindOptions(args.search))
                                 .sort(args.sort)
                                 .skip(args.skip)
                             if(args.limit)
@@ -295,7 +317,6 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            console.log(args)
                             const updateResult = await model.updateMany(args.condition,args.payload).exec()
                             const res = updateResult ? updateResult.n : 0
                             if(onMutation[updateModelMutationName])

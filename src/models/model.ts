@@ -54,7 +54,11 @@ export function makeModelFromMeta<T=any>(connection:Connection){
                 return connection.model<TypedDocument<T>>(
                     meta.name,
                     new Schema(def,{
-                        typeKey:typeKey
+                        typeKey:typeKey,
+                        timestamps:{
+                            createdAt:"createdAt",
+                            updatedAt:"updatedAt"
+                        }
                     }),
                     meta.name
                 )
