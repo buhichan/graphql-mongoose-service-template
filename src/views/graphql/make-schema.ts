@@ -169,6 +169,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
     } = options
     const getModel = makeModelGetter(connection)
     const getResolver:TypeMapperContext['getResolver'] = (refName,path)=>{
+        console.log(refName,path)
         return async (source)=>{
             const id = deepGet(source,path)
             if(!id)
@@ -178,7 +179,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 return null
             if(id instanceof Array)
                 return model.find({
-                    id:{
+                    _id:{
                         $in:id
                     }
                 })

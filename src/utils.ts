@@ -24,12 +24,14 @@ export function pipe(...args:Function[]):any {
 
 export function deepGet(obj:any, path:string[]){
     let p = obj
-    while(path.length > 0){
-        const seg = path.shift()
+    let i = 0
+    while(i < path.length){
+        const seg = path[i]
         if(seg && p)
             p = p[seg]
         else
             return null
+        i++
     }
     return p
 }

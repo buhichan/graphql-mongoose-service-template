@@ -20,12 +20,14 @@ function pipe() {
 exports.pipe = pipe;
 function deepGet(obj, path) {
     var p = obj;
-    while (path.length > 0) {
-        var seg = path.shift();
+    var i = 0;
+    while (i < path.length) {
+        var seg = path[i];
         if (seg && p)
             p = p[seg];
         else
             return null;
+        i++;
     }
     return p;
 }

@@ -94,7 +94,7 @@ function bootstrap() {
                             stripTrailingSlash: true
                         }
                     });
-                    uri = "mongodb://localhost:27017/graphql-test";
+                    uri = "mongodb://192.168.150.135:27002/test";
                     return [4 /*yield*/, new mongoose_1.Mongoose().createConnection(uri, {
                             useNewUrlParser: true
                         })];

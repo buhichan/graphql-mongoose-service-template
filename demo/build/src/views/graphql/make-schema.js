@@ -212,6 +212,7 @@ function makeGraphQLSchema(options) {
     var connection = options.connection, metas = options.metas, mutationMetas = options.mutations, _a = options.onMutation, onMutation = _a === void 0 ? {} : _a;
     var getModel = utils_1.makeModelGetter(connection);
     var getResolver = function (refName, path) {
+        console.log(refName, path);
         return function (source) { return __awaiter(_this, void 0, void 0, function () {
             var id, model;
             return __generator(this, function (_a) {
@@ -227,7 +228,7 @@ function makeGraphQLSchema(options) {
                             return [2 /*return*/, null];
                         if (id instanceof Array)
                             return [2 /*return*/, model.find({
-                                    id: {
+                                    _id: {
                                         $in: id
                                     }
                                 })];
