@@ -32,7 +32,7 @@ function parseAnyTypeLiteral(ast) {
             return null;
     }
 }
-exports.GraphQLAnyType = new graphql_1.GraphQLScalarType({
+exports.GraphQLAny = new graphql_1.GraphQLScalarType({
     name: 'Any',
     description: 'Arbitrary type',
     parseValue: function (value) {

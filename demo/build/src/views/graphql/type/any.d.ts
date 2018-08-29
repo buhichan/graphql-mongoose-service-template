@@ -1,2 +1,2 @@
 import { GraphQLScalarType } from "graphql";
-export declare const GraphQLAnyType: GraphQLScalarType;
+export declare const GraphQLAny: GraphQLScalarType;

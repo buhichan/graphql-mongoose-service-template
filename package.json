@@ -13,7 +13,7 @@
   "scripts": {
     "push": "git push origin && git push origin2",
     "version": "tsc -p . && git add -A",
-    "postversion": "git push && git push --tags",
+    "postversion": "yarn push",
     "dev": "NODE_ENV=development node ./demo/build/demo/demo.js "
   },
   "peerDependencies": {

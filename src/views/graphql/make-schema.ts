@@ -3,7 +3,7 @@ import { makeModelGetter, deepGet } from "../../utils";
 import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType, GraphQLFieldConfigArgumentMap } from "graphql";
 import { Model } from "mongoose";
 import { IMeta } from "../../models/meta";
-import { GraphQLAnyType } from "./type/any";
+import { GraphQLAny } from "./type/any";
 
 
 type TypeMapperContext = {
@@ -50,7 +50,7 @@ function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]
             }
             return context.enumTypePoll[field.name]
         }
-        case field.type==="any": return GraphQLAnyType
+        case field.type==="any": return GraphQLAny
         case field.type==="date": return GraphQLString
         case field.type==="number": return GraphQLInt
         case field.type==="ref" && field.ref in context.outputObjectTypePool:{
@@ -131,7 +131,7 @@ function makeQueryArgs(meta:IMeta,context:TypeMapperContext){
     })
     const queryArgs:GraphQLFieldConfigArgumentMap = {
         search:{
-            type:mapMetaToInputType(meta, context),
+            type:GraphQLAny,
             defaultValue:{}
         },
         limit:{

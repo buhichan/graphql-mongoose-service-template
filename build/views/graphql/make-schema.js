@@ -105,7 +105,7 @@ function mapMetaToOutputType(field, context, path) {
             }
             return context.enumTypePoll[field.name];
         }
-        case field.type === "any": return any_1.GraphQLAnyType;
+        case field.type === "any": return any_1.GraphQLAny;
         case field.type === "date": return graphql_1.GraphQLString;
         case field.type === "number": return graphql_1.GraphQLInt;
         case field.type === "ref" && field.ref in context.outputObjectTypePool: {
@@ -180,7 +180,7 @@ function makeQueryArgs(meta, context) {
     });
     var queryArgs = {
         search: {
-            type: mapMetaToInputType(meta, context),
+            type: any_1.GraphQLAny,
             defaultValue: {}
         },
         limit: {
