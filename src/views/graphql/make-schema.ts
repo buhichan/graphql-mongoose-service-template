@@ -135,8 +135,7 @@ function makeQueryArgs(meta:IMeta,context:TypeMapperContext){
             defaultValue:{}
         },
         limit:{
-            type:GraphQLInt,
-            defaultValue:100
+            type:GraphQLInt
         },
         skip:{
             type:GraphQLInt,
@@ -247,11 +246,14 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         const model = await getModel(type.name)
                         if(!model)
                             return []
-                        else
-                            return model.find(args.search)
+                        else {
+                            const query = model.find(args.search)
                                 .sort(args.sort)
-                                .limit(args.limit)
                                 .skip(args.skip)
+                            if(args.limit)
+                                return query.limit(args.limit)
+                            return query
+                        }
                     }
                 }
                 return query

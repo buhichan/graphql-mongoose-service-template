@@ -184,8 +184,7 @@ function makeQueryArgs(meta, context) {
             defaultValue: {}
         },
         limit: {
-            type: graphql_1.GraphQLInt,
-            defaultValue: 100
+            type: graphql_1.GraphQLInt
         },
         skip: {
             type: graphql_1.GraphQLInt,
@@ -301,7 +300,7 @@ function makeGraphQLSchema(options) {
                     type: new graphql_1.GraphQLList(type),
                     args: makeQueryArgs(meta, context),
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
-                        var model;
+                        var model, query_1;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0: return [4 /*yield*/, getModel(type.name)];
@@ -309,11 +308,14 @@ function makeGraphQLSchema(options) {
                                     model = _a.sent();
                                     if (!model)
                                         return [2 /*return*/, []];
-                                    else
-                                        return [2 /*return*/, model.find(args.search)
-                                                .sort(args.sort)
-                                                .limit(args.limit)
-                                                .skip(args.skip)];
+                                    else {
+                                        query_1 = model.find(args.search)
+                                            .sort(args.sort)
+                                            .skip(args.skip);
+                                        if (args.limit)
+                                            return [2 /*return*/, query_1.limit(args.limit)];
+                                        return [2 /*return*/, query_1];
+                                    }
                                     return [2 /*return*/];
                             }
                         });
