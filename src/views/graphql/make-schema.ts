@@ -293,7 +293,8 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            const updateResult = await model.update(args.condition,args.payload).exec()
+                            console.log(args)
+                            const updateResult = await model.updateMany(args.condition,args.payload).exec()
                             const res = updateResult ? updateResult.n : 0
                             if(onMutation[updateModelMutationName])
                                 await onMutation[updateModelMutationName](args,res)

@@ -374,7 +374,8 @@ function makeGraphQLSchema(options) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [4 /*yield*/, model.update(args.condition, args.payload).exec()];
+                                    console.log(args);
+                                    return [4 /*yield*/, model.updateMany(args.condition, args.payload).exec()];
                                 case 2:
                                     updateResult = _a.sent();
                                     res = updateResult ? updateResult.n : 0;

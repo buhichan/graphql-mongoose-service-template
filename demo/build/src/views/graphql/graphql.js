@@ -65,7 +65,7 @@ function makeGraphQLPlugin(options) {
                 handler: function (req) { return __awaiter(_this, void 0, void 0, function () {
                     return __generator(this, function (_a) {
                         // console.log("currentSchemaTypes",Object.keys(schema.getTypeMap()))
-                        return [2 /*return*/, graphql_1.graphql(schema, req.payload.query)];
+                        return [2 /*return*/, graphql_1.graphql(schema, req.payload.query, null, null, req.payload.variables)];
                     });
                 }); }
             }
