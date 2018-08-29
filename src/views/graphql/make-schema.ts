@@ -282,7 +282,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                     }
                     const updateModelMutationName = 'update'+capitalize(meta.name)
                     mutations[updateModelMutationName] = {
-                        type:modelType,
+                        type:GraphQLInt,
                         args:{
                             condition:{
                                 type:convertedInputType
@@ -293,7 +293,8 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            const res = await model.update(args.condition,args.payload).exec()
+                            const updateResult = await model.update(args.condition,args.payload).exec()
+                            const res = updateResult ? updateResult.n : 0
                             if(onMutation[updateModelMutationName])
                                 await onMutation[updateModelMutationName](args,res)
                             return res

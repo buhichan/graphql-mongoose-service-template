@@ -358,7 +358,7 @@ function makeGraphQLSchema(options) {
                 };
                 var updateModelMutationName = 'update' + capitalize(meta.name);
                 mutations[updateModelMutationName] = {
-                    type: modelType,
+                    type: graphql_1.GraphQLInt,
                     args: {
                         condition: {
                             type: convertedInputType
@@ -368,7 +368,7 @@ function makeGraphQLSchema(options) {
                         }
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
-                        var model, res;
+                        var model, updateResult, res;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
@@ -376,7 +376,8 @@ function makeGraphQLSchema(options) {
                                     model = _a.sent();
                                     return [4 /*yield*/, model.update(args.condition, args.payload).exec()];
                                 case 2:
-                                    res = _a.sent();
+                                    updateResult = _a.sent();
+                                    res = updateResult ? updateResult.n : 0;
                                     if (!onMutation[updateModelMutationName]) return [3 /*break*/, 4];
                                     return [4 /*yield*/, onMutation[updateModelMutationName](args, res)];
                                 case 3:
