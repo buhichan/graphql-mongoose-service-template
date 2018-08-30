@@ -254,20 +254,20 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                     }
                 return args
             },{} as GraphQLFieldConfigArgumentMap),
-            resolve:async (_,args)=>{
+            resolve:async (_,args,context)=>{
                 Object.keys(mutationMeta.args).forEach(argName=>{
                     if(!validateData(args[argName],mutationMeta.args[argName].meta)){
                         throw MetaValidationError(argName)
                     }
                 })
-                const res = await mutationMeta.resolve(args)
+                const res = await mutationMeta.resolve(args,context)
                 if(onMutation[mutationName])
                     await onMutation[mutationName](args,res)
                 return res
             }
         }
         return customMutations
-    },{} as GraphQLFieldConfigMap<void,void>)
+    },{} as GraphQLFieldConfigMap<void,any>)
 
     const schema = new GraphQLSchema({
         query:new GraphQLObjectType({

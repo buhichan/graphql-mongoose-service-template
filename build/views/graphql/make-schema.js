@@ -300,7 +300,7 @@ function makeGraphQLSchema(options) {
                     };
                 return args;
             }, {}),
-            resolve: function (_, args) { return __awaiter(_this, void 0, void 0, function () {
+            resolve: function (_, args, context) { return __awaiter(_this, void 0, void 0, function () {
                 var res;
                 return __generator(this, function (_a) {
                     switch (_a.label) {
@@ -310,7 +310,7 @@ function makeGraphQLSchema(options) {
                                     throw validate_1.MetaValidationError(argName);
                                 }
                             });
-                            return [4 /*yield*/, mutationMeta.resolve(args)];
+                            return [4 /*yield*/, mutationMeta.resolve(args, context)];
                         case 1:
                             res = _a.sent();
                             if (!onMutation[mutationName]) return [3 /*break*/, 3];

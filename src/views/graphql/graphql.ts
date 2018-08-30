@@ -1,25 +1,26 @@
 import { IMeta } from "../../models/meta";
 import { GraphQLSchema,graphql} from "graphql";
-import { Plugin } from "hapi";
+import { Plugin,Request } from "hapi";
 import { Connection } from "mongoose";
 import { makeGraphQLSchema } from "./make-schema";
 
-type CustomMutationMeta<Args extends {
-    [name:string]:{
-        meta:IMeta,
-        defaultValue?:any
-    }
-} = {}> = {
-    args:Args,
+export type MutationMeta<Args=any> = {
+    args:{
+        [name:string]:{
+            meta:IMeta,
+            defaultValue?:any
+        }
+    },
+    label?:string,
     returns?:IMeta,
-    resolve:(args:{[name in keyof Args]:any})=>any
+    resolve:(args?:Args,req?:Request)=>any
 }
 
 export type GraphqlPluginOptions = {
     metas:IMeta[],
     connection:Connection,
     mutations:{
-        [name:string]:CustomMutationMeta<any>
+        [name:string]:MutationMeta<any>
     },
     onMutation?:{
         [mutationName:string]:(args:any,res:any)=>void
@@ -43,9 +44,9 @@ export function makeGraphQLPlugin(options:GraphqlPluginOptions){
             {
                 path:`/graphql`,
                 method:"post",
-                handler:async (req)=>{
-                    const {variables,query} = req.payload as any
-                    return graphql(schema,query,null,null,variables)
+                handler:async (request)=>{
+                    const {variables,query} = request.payload as any
+                    return graphql(schema,query,null,request,variables)
                 }
             }
         ]),
