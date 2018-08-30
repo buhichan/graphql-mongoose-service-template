@@ -302,7 +302,7 @@ function makeGraphQLSchema(options) {
                     switch (_a.label) {
                         case 0:
                             Object.keys(mutationMeta.args).forEach(function (argName) {
-                                if (!validate_1.validateData(args[argName], mutationMeta.args[argName])) {
+                                if (!validate_1.validateData(args[argName], mutationMeta.args[argName].meta)) {
                                     throw validate_1.MetaValidationError(argName);
                                 }
                             });

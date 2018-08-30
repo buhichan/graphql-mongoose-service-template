@@ -252,7 +252,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             },{} as GraphQLFieldConfigArgumentMap),
             resolve:async (_,args)=>{
                 Object.keys(mutationMeta.args).forEach(argName=>{
-                    if(!validateData(args[argName],mutationMeta.args[argName])){
+                    if(!validateData(args[argName],mutationMeta.args[argName].meta)){
                         throw MetaValidationError(argName)
                     }
                 })

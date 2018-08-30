@@ -90,8 +90,8 @@ export function validateData(data:any,meta:IMeta){
             return true
         case meta.enum instanceof Array && meta.enum.length > 1:
             return meta.enum.includes(data)
-            case meta.type === 'any':
-                return true
+        case meta.type === 'any':
+            return true
         case meta.type === 'number':
             return typeof data === 'string'
         case meta.type === 'string':
