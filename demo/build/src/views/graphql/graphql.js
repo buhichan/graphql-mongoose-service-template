@@ -63,10 +63,11 @@ function makeGraphQLPlugin(options) {
                 path: "/graphql",
                 method: "post",
                 handler: function (request) { return __awaiter(_this, void 0, void 0, function () {
-                    var _a, variables, query;
+                    var _a, variables, query, context;
                     return __generator(this, function (_b) {
                         _a = request.payload, variables = _a.variables, query = _a.query;
-                        return [2 /*return*/, graphql_1.graphql(schema, query, null, request, variables)];
+                        context = options.getContext ? options.getContext(request) : request;
+                        return [2 /*return*/, graphql_1.graphql(schema, query, null, context, variables)];
                     });
                 }); }
             }

@@ -106,7 +106,7 @@ export async function bootstrap(){
                     name:"string",
                     label:"string"
                 },
-                resolve:(args)=>{
+                resolve:(args,context)=>{
                     return "hello "+args.name
                 }
             }

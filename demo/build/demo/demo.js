@@ -169,7 +169,7 @@ function bootstrap() {
                                     name: "string",
                                     label: "string"
                                 },
-                                resolve: function (args) {
+                                resolve: function (args, context) {
                                     return "hello " + args.name;
                                 }
                             }

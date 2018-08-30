@@ -4,7 +4,7 @@ import { Plugin,Request } from "hapi";
 import { Connection } from "mongoose";
 import { makeGraphQLSchema } from "./make-schema";
 
-export type MutationMeta<Args=any> = {
+export type MutationMeta<Context=any,Args=any> = {
     args:{
         [name:string]:{
             meta:IMeta,
@@ -13,14 +13,15 @@ export type MutationMeta<Args=any> = {
     },
     label?:string,
     returns?:IMeta,
-    resolve:(args?:Args,req?:Request)=>any
+    resolve:(args?:Args,req?:Context)=>any
 }
 
-export type GraphqlPluginOptions = {
+export type GraphqlPluginOptions<Context=Request> = {
     metas:IMeta[],
     connection:Connection,
+    getContext?:(request:Request)=>Context
     mutations:{
-        [name:string]:MutationMeta<any>
+        [name:string]:MutationMeta<Context>
     },
     onMutation?:{
         [mutationName:string]:(args:any,res:any)=>void
@@ -46,7 +47,8 @@ export function makeGraphQLPlugin(options:GraphqlPluginOptions){
                 method:"post",
                 handler:async (request)=>{
                     const {variables,query} = request.payload as any
-                    return graphql(schema,query,null,request,variables)
+                    const context = options.getContext ? options.getContext(request) : request
+                    return graphql(schema,query,null,context,variables)
                 }
             }
         ]),
