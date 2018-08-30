@@ -1,11 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 var mongoose_1 = require("mongoose");
+var validate_1 = require("./validate");
 exports.fieldTypes = {
     "number": Number,
     "string": String,
     "boolean": Boolean,
-    "ref": String,
+    "ref": mongoose_1.Schema.Types.ObjectId,
     "array": Array,
     "object": Object,
     "date": Date,
@@ -53,7 +54,8 @@ function buildMeta(nestLevel) {
                 name: "child",
                 type: "object",
                 label: "字段定义",
-                fields: child
+                fields: child,
+                validate: validate_1.fieldValidator
             }
         });
         fields.push({
@@ -61,6 +63,7 @@ function buildMeta(nestLevel) {
             label: "子项",
             type: "object",
             fields: child,
+            validate: validate_1.fieldValidator
         });
     }
     return fields;
@@ -69,6 +72,7 @@ exports.metaOfMeta = {
     name: "Meta",
     label: "元数据",
     type: "object",
-    fields: buildMeta(3)
+    fields: buildMeta(3),
+    validate: validate_1.fieldValidator
 };
 //# sourceMappingURL=meta.js.map

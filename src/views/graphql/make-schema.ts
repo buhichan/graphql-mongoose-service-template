@@ -1,9 +1,10 @@
 import { GraphqlPluginOptions } from "./graphql";
 import { makeModelGetter, deepGet } from "../../utils";
 import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType, GraphQLFieldConfigArgumentMap } from "graphql";
-import { Model } from "mongoose";
-import { IMeta } from "../../models/meta";
+import { Model, Document } from "mongoose";
+import { IMeta, metaOfMeta } from "../../models/meta";
 import { GraphQLAny } from "./type/any";
+import { MetaValidationError, validateData } from "../../models/validate";
 
 
 type TypeMapperContext = {
@@ -178,6 +179,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         mutations:mutationMetas,
         onMutation = {},
     } = options
+    options.metas.forEach(meta=>{
+        if(!validateData(meta,metaOfMeta))
+            throw new Error("Invalid meta: "+meta.name)
+    })
     const getModel = makeModelGetter(connection)
     const getResolver:TypeMapperContext['getResolver'] = (refName,path)=>{
         return async (source)=>{
@@ -221,14 +226,13 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         }
     ]
     metas = metas.filter(x=>x && x.type==="object" && !internalFields.some(f=>f.name === x.name)).map(modelMeta=>{
-            return {
-                ...modelMeta,
-                fields:[
-                    ...internalFields,
-                    ...modelMeta.fields,
-                ]
-            }
-        return modelMeta
+        return {
+            ...modelMeta,
+            fields:[
+                ...internalFields,
+                ...modelMeta.fields,
+            ]
+        }
     })
     const rootTypes = metas.map(modelMeta=>{
         return mapMetaToOutputType(modelMeta,context,[]) as GraphQLObjectType
@@ -247,6 +251,11 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 return args
             },{} as GraphQLFieldConfigArgumentMap),
             resolve:async (_,args)=>{
+                Object.keys(mutationMeta.args).forEach(argName=>{
+                    if(!validateData(args[argName],mutationMeta.args[argName])){
+                        throw MetaValidationError(argName)
+                    }
+                })
                 const res = await mutationMeta.resolve(args)
                 if(onMutation[mutationName])
                     await onMutation[mutationName](args,res)
@@ -306,6 +315,25 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                     }
                     const updateModelMutationName = 'update'+capitalize(meta.name)
                     mutations[updateModelMutationName] = {
+                        type:modelType,
+                        args:{
+                            condition:{
+                                type:convertedInputType
+                            },
+                            payload:{
+                                type:convertedInputType
+                            }
+                        },
+                        resolve:async (source,args,context,info)=>{
+                            const model = await getModel(meta.name)
+                            const res = await model.findOneAndUpdate(args.condition,args.payload).exec()
+                            if(onMutation[updateModelMutationName])
+                                await onMutation[updateModelMutationName](args,res)
+                            return res
+                        }
+                    }
+                    const updateManyModelMutationName = 'updateMany'+capitalize(meta.name)
+                    mutations[updateManyModelMutationName] = {
                         type:GraphQLInt,
                         args:{
                             condition:{

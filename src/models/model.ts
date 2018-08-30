@@ -1,6 +1,6 @@
-import * as joi from "joi"
-import {metaOfMeta,IMeta, FieldTypes, fieldTypes} from "./meta"
-import { SchemaTypeOpts, SchemaTypes, Connection, Document, Schema } from "mongoose";
+import { metaOfMeta,IMeta, fieldTypes} from "./meta"
+import { Connection, Document, Schema, SchemaOptions, SchemaDefinition, ValidationError } from "mongoose";
+import { validateData } from "./validate";
 
 const typeKey = '$type'
 export interface TypedDocument<T> extends Document {
@@ -8,32 +8,36 @@ export interface TypedDocument<T> extends Document {
     toJSON():T,
 }
 
-export const makeMetaModel = (connection:Connection)=>makeModelFromMeta(connection)(metaOfMeta)
-
-function makeSchemaDefinitions (metaFields:IMeta[]){
-    function makeFieldDefinition(fieldMeta:IMeta):SchemaTypeOpts<any>{
-        switch(fieldMeta.type){
-            case "array":{
-                const item = makeFieldDefinition(fieldMeta.item)
-                if(item)
-                    return [item]
-                return null   
-            }
-            case "object":
-                return makeSchemaDefinitions(fieldMeta.fields)
-            case "ref":
-                return {
-                    [typeKey]:SchemaTypes.ObjectId,
-                    ref:fieldMeta.ref
-                }
-            default:{
-                if(fieldMeta.type in fieldTypes)
-                    return fieldTypes[fieldMeta.type]
-                else
-                    return null
-            }
+function mapMetaTypeToMongooseType(fieldMeta:IMeta){
+    switch(fieldMeta.type){
+        case "array":{
+            const item = makeFieldDefinition(fieldMeta.item)
+            if(item)
+                return [item]
+            return null   
+        }
+        case "object":
+            return makeSchemaDefinition(fieldMeta.fields)
+        default:{
+            if(fieldMeta.type in fieldTypes)
+                return fieldTypes[fieldMeta.type]
+            else
+                return null
         }
     }
+}
+
+function makeFieldDefinition(fieldMeta:IMeta){
+    const type = mapMetaTypeToMongooseType(fieldMeta)
+    if(fieldMeta.ref)
+        return {
+            [typeKey]: type,
+            ref:fieldMeta.ref
+        }
+    return type
+}
+
+export function makeSchemaDefinition (metaFields:IMeta[]):SchemaDefinition{
     if(!metaFields)
         return {}
     return metaFields.reduce((fields,metaField)=>{
@@ -44,57 +48,42 @@ function makeSchemaDefinitions (metaFields:IMeta[]){
     },{})
 }
 
-export function makeModelFromMeta<T=any>(connection:Connection){
-    return (meta:IMeta)=>{
-        if(meta.name in connection.models)
-            delete connection.models[meta.name]
-        if(meta.type==='object' && meta.fields){
-            const def = makeSchemaDefinitions(meta.fields)
-            try{
-                return connection.model<TypedDocument<T>>(
-                    meta.name,
-                    new Schema(def,{
-                        typeKey:typeKey,
-                        timestamps:{
-                            createdAt:"createdAt",
-                            updatedAt:"updatedAt"
-                        }
-                    }),
-                    meta.name
-                )
-            }catch(e){
-                console.error('invalid meta:',meta)
-                console.error('invalid mongoose def:',def)
-                throw e
-            }
-        }
-    }
+type MakeModelOptions<T> = {
+    connection:Connection,
+    meta:IMeta,
+    schemaOptions?:Exclude<SchemaOptions,'typeKey'>,
+    mapSchemaDefinition?:(def:SchemaDefinition)=>SchemaDefinition
 }
 
-const fieldValidator = joi.object({
-    name:joi.string().required(),
-    label:joi.string().required(),
-    type:joi.string().required().allow(Object.keys(fieldTypes)),
-    enum:joi.array().items(joi.string()).optional(),
-    ref:joi.string().optional(),
-    children:joi.array().items(
-        joi.lazy(()=>fieldValidator)
-    ).optional()
-})
-
-export const metaModelValidations = {
-    post:joi.object({
-        name:joi.string().required(),
-        fields:joi.array().items(
-            fieldValidator
-        ).required()
-    }).unknown(true),
-    put:joi.object({
-        name:joi.string().optional(),
-        fields:joi.array().items(
-            fieldValidator
-        ).optional()
-    }).unknown(true),
+export function makeModelFromMeta<T=any>(options:MakeModelOptions<T>){
+    const {connection,meta,schemaOptions={},mapSchemaDefinition=x=>x} = options
+    if(meta.name in connection.models)
+        delete connection.models[meta.name]
+    if(meta.type==='object' && meta.fields){
+        const def = mapSchemaDefinition(makeSchemaDefinition(meta.fields))
+        const schema = new Schema(def,{
+            timestamps:true,
+            ...schemaOptions,
+            typeKey:typeKey
+        })
+        schema.pre("validate",function(this:Document,next:any){
+            if(!validateData(this.toJSON(),meta))
+                next(new ValidationError("Validation Error: "+meta.name))
+            else
+                next()
+        })
+        try{
+            return connection.model<TypedDocument<T>>(
+                meta.name,
+                schema,
+                meta.name
+            )
+        }catch(e){
+            console.error('invalid meta:',meta)
+            console.error('invalid mongoose def:',def)
+            throw e
+        }
+    }
 }
 
 // console.log(MetaModelDef)

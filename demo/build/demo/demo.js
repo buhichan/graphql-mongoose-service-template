@@ -60,7 +60,7 @@ function bootstrap() {
                 var _a, _b, _c;
                 return __generator(this, function (_d) {
                     switch (_d.label) {
-                        case 0: return [4 /*yield*/, Promise.all(allMetas.map(makeModelFromMeta(connection)))];
+                        case 0: return [4 /*yield*/, Promise.all(allMetas.map(function (meta) { return makeModelFromMeta({ connection: connection, meta: meta }); }))];
                         case 1:
                             _d.sent();
                             _b = (_a = graphQLPlugin).reload;
@@ -74,12 +74,12 @@ function bootstrap() {
                 });
             });
         }
-        var _a, makeMetaModel, metaModelValidations, makeModelFromMeta, metaOfMeta, restfulRoutes, makeGraphQLPlugin, server, uri, connection, MetaModel, metas, allMetas, graphQLPlugin, _b, _c, _d;
+        var _a, makeModelFromMeta, metaOfMeta, restfulRoutes, makeGraphQLPlugin, server, uri, connection, MetaModel, metas, allMetas, alreadyDefined, graphQLPlugin, _b, _c, _d;
         return __generator(this, function (_e) {
             switch (_e.label) {
                 case 0: return [4 /*yield*/, Promise.resolve().then(function () { return require("../src"); })];
                 case 1:
-                    _a = _e.sent(), makeMetaModel = _a.makeMetaModel, metaModelValidations = _a.metaModelValidations, makeModelFromMeta = _a.makeModelFromMeta, metaOfMeta = _a.metaOfMeta, restfulRoutes = _a.restfulRoutes, makeGraphQLPlugin = _a.makeGraphQLPlugin;
+                    _a = _e.sent(), makeModelFromMeta = _a.makeModelFromMeta, metaOfMeta = _a.metaOfMeta, restfulRoutes = _a.restfulRoutes, makeGraphQLPlugin = _a.makeGraphQLPlugin;
                     console.log("Dependencies loaded.");
                     server = new Hapi.Server({
                         host: "0.0.0.0",
@@ -94,13 +94,16 @@ function bootstrap() {
                             stripTrailingSlash: true
                         }
                     });
-                    uri = "mongodb://192.168.150.135:27002/test";
+                    uri = "mongodb://localhost:27017/graphql-test";
                     return [4 /*yield*/, new mongoose_1.Mongoose().createConnection(uri, {
                             useNewUrlParser: true
                         })];
                 case 2:
                     connection = _e.sent();
-                    return [4 /*yield*/, makeMetaModel(connection)];
+                    return [4 /*yield*/, makeModelFromMeta({
+                            connection: connection,
+                            meta: metaOfMeta
+                        })];
                 case 3:
                     MetaModel = _e.sent();
                     return [4 /*yield*/, MetaModel.find()];
@@ -123,19 +126,23 @@ function bootstrap() {
                         ]
                     });
                     console.log("Metas loaded.");
-                    return [4 /*yield*/, Promise.all(allMetas.map(makeModelFromMeta(connection)))];
+                    return [4 /*yield*/, Promise.all(allMetas.map(function (meta) { return makeModelFromMeta({ connection: connection, meta: meta }); }))];
                 case 5:
                     _e.sent();
                     console.log("Models loaded.");
+                    alreadyDefined = new Set();
                     allMetas.concat(metaOfMeta).map(function (meta) {
-                        server.route(restfulRoutes({
-                            meta: meta,
-                            connection: connection,
-                            validators: meta === metaOfMeta ? metaModelValidations : {
-                                post: joi.any(),
-                                put: joi.any()
-                            }
-                        }));
+                        if (alreadyDefined.has(meta.name)) {
+                            alreadyDefined.add(meta.name);
+                            server.route(restfulRoutes({
+                                meta: meta,
+                                connection: connection,
+                                validators: {
+                                    put: joi.any(),
+                                    post: joi.any()
+                                }
+                            }));
+                        }
                     });
                     graphQLPlugin = makeGraphQLPlugin({
                         metas: allMetas.concat(metaOfMeta),

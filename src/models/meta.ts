@@ -1,10 +1,11 @@
 import { Schema } from "mongoose";
+import { IMetaConstraint, applyMetaValidator, fieldValidator } from "./validate";
 
 export const fieldTypes = {
     "number":Number,
     "string":String,
     "boolean":Boolean,
-    "ref":String,
+    "ref":Schema.Types.ObjectId,
     "array":Array,
     "object":Object,
     "date":Date,
@@ -15,6 +16,7 @@ export type FieldTypes = keyof typeof fieldTypes
 
 export type SimpleFieldTypes = Exclude<FieldTypes, "object"|"ref"|"array" >
 
+
 export interface IMeta {
     name:string,
     label:string,
@@ -23,6 +25,7 @@ export interface IMeta {
     item?:IMeta,
     enum?:string[]
     ref?:string,
+    validate?:IMetaConstraint
 }
 
 function buildMeta(nestLevel:number){
@@ -68,7 +71,8 @@ function buildMeta(nestLevel:number){
                     name:"child",
                     type:"object",
                     label:"字段定义",
-                    fields:child
+                    fields:child,
+                    validate:fieldValidator
                 }
             }
         )
@@ -78,6 +82,7 @@ function buildMeta(nestLevel:number){
                 label:"子项",
                 type:"object",
                 fields:child,
+                validate:fieldValidator
             }
         )
     }
@@ -88,5 +93,6 @@ export const metaOfMeta:IMeta = {
     name:"Meta",
     label:"元数据",
     type:"object",
-    fields:buildMeta(3)
+    fields:buildMeta(3),
+    validate:fieldValidator
 }

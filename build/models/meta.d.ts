@@ -1,9 +1,10 @@
 import { Schema } from "mongoose";
+import { IMetaConstraint } from "./validate";
 export declare const fieldTypes: {
     "number": NumberConstructor;
     "string": StringConstructor;
     "boolean": BooleanConstructor;
-    "ref": StringConstructor;
+    "ref": typeof Schema.Types.ObjectId;
     "array": ArrayConstructor;
     "object": ObjectConstructor;
     "date": DateConstructor;
@@ -19,5 +20,6 @@ export interface IMeta {
     item?: IMeta;
     enum?: string[];
     ref?: string;
+    validate?: IMetaConstraint;
 }
 export declare const metaOfMeta: IMeta;

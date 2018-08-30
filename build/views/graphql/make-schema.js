@@ -68,7 +68,9 @@ var __spread = (this && this.__spread) || function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 var utils_1 = require("../../utils");
 var graphql_1 = require("graphql");
+var meta_1 = require("../../models/meta");
 var any_1 = require("./type/any");
+var validate_1 = require("../../models/validate");
 function capitalize(str) {
     if (!str)
         return str;
@@ -220,6 +222,10 @@ function convertSearchToFindOptions(search) {
 function makeGraphQLSchema(options) {
     var _this = this;
     var connection = options.connection, metas = options.metas, mutationMetas = options.mutations, _a = options.onMutation, onMutation = _a === void 0 ? {} : _a;
+    options.metas.forEach(function (meta) {
+        if (!validate_1.validateData(meta, meta_1.metaOfMeta))
+            throw new Error("Invalid meta: " + meta.name);
+    });
     var getModel = utils_1.makeModelGetter(connection);
     var getResolver = function (refName, path) {
         return function (source) { return __awaiter(_this, void 0, void 0, function () {
@@ -273,7 +279,6 @@ function makeGraphQLSchema(options) {
     ];
     metas = metas.filter(function (x) { return x && x.type === "object" && !internalFields.some(function (f) { return f.name === x.name; }); }).map(function (modelMeta) {
         return __assign({}, modelMeta, { fields: __spread(internalFields, modelMeta.fields) });
-        return modelMeta;
     });
     var rootTypes = metas.map(function (modelMeta) {
         return mapMetaToOutputType(modelMeta, context, []);
@@ -295,7 +300,13 @@ function makeGraphQLSchema(options) {
                 var res;
                 return __generator(this, function (_a) {
                     switch (_a.label) {
-                        case 0: return [4 /*yield*/, mutationMeta.resolve(args)];
+                        case 0:
+                            Object.keys(mutationMeta.args).forEach(function (argName) {
+                                if (!validate_1.validateData(args[argName], mutationMeta.args[argName])) {
+                                    throw validate_1.MetaValidationError(argName);
+                                }
+                            });
+                            return [4 /*yield*/, mutationMeta.resolve(args)];
                         case 1:
                             res = _a.sent();
                             if (!onMutation[mutationName]) return [3 /*break*/, 3];
@@ -379,6 +390,37 @@ function makeGraphQLSchema(options) {
                 };
                 var updateModelMutationName = 'update' + capitalize(meta.name);
                 mutations[updateModelMutationName] = {
+                    type: modelType,
+                    args: {
+                        condition: {
+                            type: convertedInputType
+                        },
+                        payload: {
+                            type: convertedInputType
+                        }
+                    },
+                    resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
+                        var model, res;
+                        return __generator(this, function (_a) {
+                            switch (_a.label) {
+                                case 0: return [4 /*yield*/, getModel(meta.name)];
+                                case 1:
+                                    model = _a.sent();
+                                    return [4 /*yield*/, model.findOneAndUpdate(args.condition, args.payload).exec()];
+                                case 2:
+                                    res = _a.sent();
+                                    if (!onMutation[updateModelMutationName]) return [3 /*break*/, 4];
+                                    return [4 /*yield*/, onMutation[updateModelMutationName](args, res)];
+                                case 3:
+                                    _a.sent();
+                                    _a.label = 4;
+                                case 4: return [2 /*return*/, res];
+                            }
+                        });
+                    }); }
+                };
+                var updateManyModelMutationName = 'updateMany' + capitalize(meta.name);
+                mutations[updateManyModelMutationName] = {
                     type: graphql_1.GraphQLInt,
                     args: {
                         condition: {

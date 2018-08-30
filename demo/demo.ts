@@ -7,7 +7,7 @@ import graphiql from "./graphiql";
 import { IMeta } from "../src";
 
 export async function bootstrap(){
-    const {makeMetaModel,metaModelValidations,makeModelFromMeta,metaOfMeta,restfulRoutes,makeGraphQLPlugin } = await import("../src")
+    const {makeModelFromMeta,metaOfMeta,restfulRoutes,makeGraphQLPlugin } = await import("../src")
 
     console.log(`Dependencies loaded.`)
 
@@ -24,12 +24,15 @@ export async function bootstrap(){
             stripTrailingSlash: true
         }
     });
-    const uri = "mongodb://192.168.150.135:27002/test"
-    // const uri = "mongodb://localhost:27017/graphql-test"
+    // const uri = "mongodb://192.168.150.135:27002/test"
+    const uri = "mongodb://localhost:27017/graphql-test"
     const connection = await new Mongoose().createConnection(uri,{
         useNewUrlParser:true
     })
-    const MetaModel = await makeMetaModel(connection)
+    const MetaModel = await makeModelFromMeta({
+        connection,
+        meta:metaOfMeta
+    })
 
     const metas = await MetaModel.find()
     const allMetas = metas.map(x=>{
@@ -50,25 +53,29 @@ export async function bootstrap(){
     })
     console.log(`Metas loaded.`)
 
-    await Promise.all(allMetas.map(makeModelFromMeta(connection)))
+    await Promise.all(allMetas.map(meta=>makeModelFromMeta({connection,meta})))
     console.log(`Models loaded.`)
 
+    const alreadyDefined = new Set()
     allMetas.concat(metaOfMeta).map(meta=>{
-        server.route(restfulRoutes({
-            meta:meta,
-            connection,
-            validators:meta === metaOfMeta ? metaModelValidations : {
-                post:joi.any(),
-                put:joi.any()
-            }
-        }))
+        if(alreadyDefined.has(meta.name)){
+            alreadyDefined.add(meta.name)
+            server.route(restfulRoutes({
+                meta:meta,
+                connection,
+                validators:{
+                    put:joi.any(),
+                    post:joi.any()
+                }
+            }))
+        }
     })
 
     /**
      * reload graphql schema when meta model is mutated.
      */
     async function reloadMetas(){
-        await Promise.all(allMetas.map(makeModelFromMeta(connection)))
+        await Promise.all(allMetas.map(meta=>makeModelFromMeta({connection,meta})))
         graphQLPlugin.reload({
             metas: (await MetaModel.find()).map(x=>x.toObject()).concat(metaOfMeta)
         })
