@@ -1,8 +1,8 @@
 import { IMeta } from "./meta";
 
 export type IMetaConstraint = boolean | {
-    or?:IMetaConstraint[]
-    and?:IMetaConstraint[]
+    anyOf?:IMetaConstraint[]
+    allOf?:IMetaConstraint[]
     not?:IMetaConstraint
     if?:IMetaConstraint,
     then?:IMetaConstraint,
@@ -13,8 +13,8 @@ export type IMetaConstraint = boolean | {
     const?:any
 }
 
-export const fieldValidator = {
-    and:[
+export const fieldValidator:IMetaConstraint = {
+    allOf:[
         {
             if:{
                 properties:{
@@ -65,8 +65,8 @@ export function applyMetaValidator(data:any,validate:IMetaConstraint){
         return true
     return (
         ( !validate.const || validate.const === data ) &&
-        ( !validate.and || validate.and.every(validate=>applyMetaValidator(data, validate)) ) &&
-        ( !validate.or || validate.or.some(validate=>applyMetaValidator(data, validate))) &&
+        ( !validate.allOf || validate.allOf.every(validate=>applyMetaValidator(data, validate)) ) &&
+        ( !validate.anyOf || validate.anyOf.some(validate=>applyMetaValidator(data, validate))) &&
         ( !validate.not || !applyMetaValidator(data, validate.not)) &&
         ( !validate.properties || Object.keys(validate.properties).every(propName=>applyMetaValidator(data[propName], validate.properties[propName]))) &&
         ( !validate.if || ( ()=>{

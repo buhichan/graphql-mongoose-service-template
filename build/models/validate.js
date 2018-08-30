@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fieldValidator = {
-    and: [
+    allOf: [
         {
             if: {
                 properties: {
@@ -50,8 +50,8 @@ function applyMetaValidator(data, validate) {
     if (validate === undefined)
         return true;
     return ((!validate.const || validate.const === data) &&
-        (!validate.and || validate.and.every(function (validate) { return applyMetaValidator(data, validate); })) &&
-        (!validate.or || validate.or.some(function (validate) { return applyMetaValidator(data, validate); })) &&
+        (!validate.allOf || validate.allOf.every(function (validate) { return applyMetaValidator(data, validate); })) &&
+        (!validate.anyOf || validate.anyOf.some(function (validate) { return applyMetaValidator(data, validate); })) &&
         (!validate.not || !applyMetaValidator(data, validate.not)) &&
         (!validate.properties || Object.keys(validate.properties).every(function (propName) { return applyMetaValidator(data[propName], validate.properties[propName]); })) &&
         (!validate.if || (function () {
