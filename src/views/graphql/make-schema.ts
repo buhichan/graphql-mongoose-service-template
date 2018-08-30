@@ -24,7 +24,8 @@ function capitalize(str:string){
 
 function mapMetaToField(fieldMeta:IMeta,context:TypeMapperContext,path:string[]){
     const field:GraphQLFieldConfig<void,void> = {
-        type:mapMetaToOutputType(fieldMeta, context, path)
+        type:mapMetaToOutputType(fieldMeta, context, path),
+        description:fieldMeta.label
     }
     if(!fieldMeta.type)
         return null
@@ -45,7 +46,7 @@ function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]
             const enumList:string[] = field['enum'];
             if(!context.enumTypePoll[field.name]){
                 context.enumTypePoll[field.name] = new GraphQLEnumType({
-                    name:path.join("_")+field.name,
+                    name:path.concat(field.name).join("__"),
                     values:enumList.reduce((enums,v)=>({...enums,[v]:{value:v}}),{})
                 })
             }
@@ -67,9 +68,10 @@ function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]
         case field.type==="object" && field.fields instanceof Array && field.fields.length > 0: {
             if(!context.outputObjectTypePool[field.name])
                 context.outputObjectTypePool[field.name] = new GraphQLObjectType({
-                    name:path.join("_")+field.name,
+                    name:path.concat(field.name).join("__"),
+                    description:field.label,
                     fields:()=>field.fields.reduce((fields,childMeta)=>{
-                        const child = mapMetaToField(childMeta,context,path.concat(childMeta.name))
+                        const child = mapMetaToField(childMeta,context,path.concat(field.name))
                         if(child)
                             fields[childMeta.name]=child
                         return fields
@@ -96,6 +98,7 @@ function mapMetaToInputType(meta:IMeta,context:TypeMapperContext):GraphQLInputTy
                     if(converted)
                         inputFields[fieldMeta.name] = {
                             type:converted,
+                            description:fieldMeta.label
                         }
                     return inputFields
                 },{})
@@ -133,6 +136,7 @@ function makeQueryArgs(meta:IMeta,context:TypeMapperContext){
     const queryArgs:GraphQLFieldConfigArgumentMap = {
         search:{
             type:GraphQLAny,
+            description:"搜索条件, 支持mongodb操作符, 但需要把$替换为_",
             defaultValue:{}
         },
         limit:{
@@ -272,6 +276,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 const meta = metas.find(x=>x.name === type.name)
                 query[type.name] = {
                     type:new GraphQLList(type),
+                    description:meta.label,
                     args:makeQueryArgs(meta,context),
                     resolve:async (source,args,context,info)=>{
                         const model = await getModel(type.name)

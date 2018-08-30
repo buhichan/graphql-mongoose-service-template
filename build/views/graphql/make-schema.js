@@ -78,7 +78,8 @@ function capitalize(str) {
 }
 function mapMetaToField(fieldMeta, context, path) {
     var field = {
-        type: mapMetaToOutputType(fieldMeta, context, path)
+        type: mapMetaToOutputType(fieldMeta, context, path),
+        description: fieldMeta.label
     };
     if (!fieldMeta.type)
         return null;
@@ -98,7 +99,7 @@ function mapMetaToOutputType(field, context, path) {
             var enumList = field['enum'];
             if (!context.enumTypePoll[field.name]) {
                 context.enumTypePoll[field.name] = new graphql_1.GraphQLEnumType({
-                    name: path.join("_") + field.name,
+                    name: path.concat(field.name).join("__"),
                     values: enumList.reduce(function (enums, v) {
                         var _a;
                         return (__assign({}, enums, (_a = {}, _a[v] = { value: v }, _a)));
@@ -123,9 +124,10 @@ function mapMetaToOutputType(field, context, path) {
         case field.type === "object" && field.fields instanceof Array && field.fields.length > 0: {
             if (!context.outputObjectTypePool[field.name])
                 context.outputObjectTypePool[field.name] = new graphql_1.GraphQLObjectType({
-                    name: path.join("_") + field.name,
+                    name: path.concat(field.name).join("__"),
+                    description: field.label,
                     fields: function () { return field.fields.reduce(function (fields, childMeta) {
-                        var child = mapMetaToField(childMeta, context, path.concat(childMeta.name));
+                        var child = mapMetaToField(childMeta, context, path.concat(field.name));
                         if (child)
                             fields[childMeta.name] = child;
                         return fields;
@@ -151,6 +153,7 @@ function mapMetaToInputType(meta, context) {
                     if (converted)
                         inputFields[fieldMeta.name] = {
                             type: converted,
+                            description: fieldMeta.label
                         };
                     return inputFields;
                 }, {}); }
@@ -183,6 +186,7 @@ function makeQueryArgs(meta, context) {
     var queryArgs = {
         search: {
             type: any_1.GraphQLAny,
+            description: "搜索条件, 支持mongodb操作符, 但需要把$替换为_",
             defaultValue: {}
         },
         limit: {
@@ -328,6 +332,7 @@ function makeGraphQLSchema(options) {
                 var meta = metas.find(function (x) { return x.name === type.name; });
                 query[type.name] = {
                     type: new graphql_1.GraphQLList(type),
+                    description: meta.label,
                     args: makeQueryArgs(meta, context),
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
                         var model, findCondition, query_1;
