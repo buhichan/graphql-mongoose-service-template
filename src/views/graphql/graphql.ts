@@ -44,8 +44,8 @@ export function makeGraphQLPlugin(options:GraphqlPluginOptions){
                 path:`/graphql`,
                 method:"post",
                 handler:async (req)=>{
-                    // console.log("currentSchemaTypes",Object.keys(schema.getTypeMap()))
-                    return graphql(schema,(req.payload as any).query,null,null,(req.payload as any).variables)
+                    const {variables,query} = req.payload as any
+                    return graphql(schema,query,null,null,variables)
                 }
             }
         ]),

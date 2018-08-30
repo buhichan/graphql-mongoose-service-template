@@ -78,5 +78,4 @@ function makeModelFromMeta(options) {
     }
 }
 exports.makeModelFromMeta = makeModelFromMeta;
-// console.log(MetaModelDef)
 //# sourceMappingURL=model.js.map

@@ -330,7 +330,7 @@ function makeGraphQLSchema(options) {
                     type: new graphql_1.GraphQLList(type),
                     args: makeQueryArgs(meta, context),
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
-                        var model, query_1;
+                        var model, findCondition, query_1;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0: return [4 /*yield*/, getModel(type.name)];
@@ -339,7 +339,8 @@ function makeGraphQLSchema(options) {
                                     if (!model)
                                         return [2 /*return*/, []];
                                     else {
-                                        query_1 = model.find(convertSearchToFindOptions(args.search))
+                                        findCondition = convertSearchToFindOptions(args.search);
+                                        query_1 = model.find(findCondition)
                                             .sort(args.sort)
                                             .skip(args.skip);
                                         if (args.limit)

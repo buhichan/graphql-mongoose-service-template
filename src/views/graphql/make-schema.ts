@@ -278,7 +278,8 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         if(!model)
                             return []
                         else {
-                            const query = model.find(convertSearchToFindOptions(args.search))
+                            const findCondition = convertSearchToFindOptions(args.search)
+                            const query = model.find(findCondition)
                                 .sort(args.sort)
                                 .skip(args.skip)
                             if(args.limit)

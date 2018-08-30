@@ -85,5 +85,3 @@ export function makeModelFromMeta<T=any>(options:MakeModelOptions<T>){
         }
     }
 }
-
-// console.log(MetaModelDef)
