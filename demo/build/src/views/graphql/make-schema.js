@@ -85,13 +85,14 @@ function mapMetaToField(fieldMeta, context, path) {
     if (!fieldMeta.type)
         return null;
     if (fieldMeta.type === 'ref' && fieldMeta.ref) {
-        field.resolve = context.getResolver(fieldMeta.ref, path);
+        field.resolve = context.getResolver(fieldMeta.ref, path.slice(1).concat(fieldMeta.name));
     }
     if (fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref) {
-        field.resolve = context.getResolver(fieldMeta.item.ref, path);
+        field.resolve = context.getResolver(fieldMeta.item.ref, path.slice(1).concat(fieldMeta.name));
     }
     return field;
 }
+//path不包括field.name
 function mapMetaToOutputType(field, context, path) {
     switch (true) {
         case !field:

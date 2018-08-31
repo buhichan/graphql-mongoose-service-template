@@ -31,14 +31,15 @@ function mapMetaToField(fieldMeta:IMeta,context:TypeMapperContext,path:string[])
     if(!fieldMeta.type)
         return null
     if(fieldMeta.type === 'ref' && fieldMeta.ref){
-        field.resolve = context.getResolver(fieldMeta.ref,path)
+        field.resolve = context.getResolver(fieldMeta.ref,path.slice(1).concat(fieldMeta.name))
     }
     if(fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref){
-        field.resolve = context.getResolver(fieldMeta.item.ref,path)
+        field.resolve = context.getResolver(fieldMeta.item.ref,path.slice(1).concat(fieldMeta.name))
     }
     return field
 }
 
+//path不包括field.name
 export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]):GraphQLOutputType|null{
     switch(true){
         case !field:
@@ -197,7 +198,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
     const getModel = makeModelGetter(connection)
     const getResolver:TypeMapperContext['getResolver'] = (refName,path)=>{
         return async (source)=>{
-            const id = deepGet(source,path)
+            const id = deepGet(source,path); // path[0] is modelName, which is useless.
             if(!id)
                 return null
             const model = await getModel(refName)
