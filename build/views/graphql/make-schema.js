@@ -387,7 +387,9 @@ function makeGraphQLSchema(options) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [4 /*yield*/, model.findByIdAndUpdate(args._id, args.payload).exec()];
+                                    return [4 /*yield*/, model.findByIdAndUpdate(args._id, args.payload, {
+                                            new: true
+                                        }).exec()];
                                 case 2:
                                     res = _a.sent();
                                     if (!onMutation[updateModelMutationName]) return [3 /*break*/, 4];
