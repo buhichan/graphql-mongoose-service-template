@@ -281,8 +281,8 @@ function makeGraphQLSchema(options) {
             type: "date"
         }
     ];
-    metas = metas.filter(function (x) { return x && x.type === "object" && !internalFields.some(function (f) { return f.name === x.name; }); }).map(function (modelMeta) {
-        return __assign({}, modelMeta, { fields: __spread(internalFields, modelMeta.fields) });
+    metas = metas.filter(function (x) { return x && x.type === "object"; }).map(function (modelMeta) {
+        return __assign({}, modelMeta, { fields: __spread(modelMeta.fields, internalFields.filter(function (x) { return !modelMeta.fields.some(function (y) { return y.name === x.name; }); })) });
     });
     var rootTypes = metas.map(function (modelMeta) {
         return mapMetaToOutputType(modelMeta, context, []);

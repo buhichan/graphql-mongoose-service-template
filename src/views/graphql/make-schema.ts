@@ -229,12 +229,12 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             type:"date"
         }
     ]
-    metas = metas.filter(x=>x && x.type==="object" && !internalFields.some(f=>f.name === x.name)).map(modelMeta=>{
+    metas = metas.filter(x=>x && x.type==="object").map(modelMeta=>{
         return {
             ...modelMeta,
             fields:[
-                ...internalFields,
                 ...modelMeta.fields,
+                ...internalFields.filter(x=>!modelMeta.fields.some(y=>y.name === x.name))
             ]
         }
     })
