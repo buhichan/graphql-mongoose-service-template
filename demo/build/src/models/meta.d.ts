@@ -21,5 +21,7 @@ export interface IMeta {
     enum?: string[];
     ref?: string;
     validate?: IMetaConstraint;
+    readonly?: boolean;
+    writeonly?: boolean;
 }
 export declare const metaOfMeta: IMeta;

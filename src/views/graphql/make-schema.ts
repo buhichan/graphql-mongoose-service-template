@@ -84,17 +84,20 @@ function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]
     }
 }
 
-function mapMetaToInputType(meta:IMeta,context:TypeMapperContext):GraphQLInputType|null{
+function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,operationType:"Any"|"Read"|"Write"):GraphQLInputType|null{
     if(!meta)
         return null
-    if(meta.type === 'ref')
-        return GraphQLString
-    else if(meta.type==='object'){
-        if(!context.inputObjectTypePool[meta.name])
-            context.inputObjectTypePool[meta.name] = new GraphQLInputObjectType({
-                name:"_"+meta.name,
+    if(meta.readonly && operationType === 'Write')
+        return null
+    if(meta.writeonly && operationType === 'Read')
+        return null
+    if(meta.type==='object'){
+        const inputObjectTypeName = operationType + capitalize(meta.name)
+        if(!context.inputObjectTypePool[inputObjectTypeName])
+            context.inputObjectTypePool[inputObjectTypeName] = new GraphQLInputObjectType({
+                name:inputObjectTypeName,
                 fields:()=>meta.fields.reduce((inputFields,fieldMeta)=>{
-                    const converted = mapMetaToInputType(fieldMeta, context)
+                    const converted = mapMetaToInputType(fieldMeta, context,operationType)
                     if(converted)
                         inputFields[fieldMeta.name] = {
                             type:converted,
@@ -103,11 +106,10 @@ function mapMetaToInputType(meta:IMeta,context:TypeMapperContext):GraphQLInputTy
                     return inputFields
                 },{})
             })
-
-        return context.inputObjectTypePool[meta.name]
+        return context.inputObjectTypePool[inputObjectTypeName]
     }
     else if(meta.type==='array'){
-        const item = mapMetaToInputType(meta.item,context)
+        const item = mapMetaToInputType(meta.item,context,operationType)
         if(!item)
             return null
         return new GraphQLList(item)
@@ -217,16 +219,19 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         {
             name:"_id",
             label:"ID",
-            type:"string"
+            type:"string",
+            readonly:true
         },
         {
             name:"createdAt",
             label:"创建时间",
-            type:"date"
+            type:"date",
+            readonly:true
         },{
             name:"updatedAt",
             label:"更新时间",
-            type:"date"
+            type:"date",
+            readonly:true
         }
     ]
     metas = metas.filter(x=>x && x.type==="object").map(modelMeta=>{
@@ -249,7 +254,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 const argMeta = mutationMeta.args[argName]
                 if(argMeta.meta)
                     args[argName] = {
-                        type: mapMetaToInputType(argMeta.meta, context),
+                        type: mapMetaToInputType(argMeta.meta, context, 'Any'),
                         defaultValue: mutationMeta.args[argName].defaultValue
                     }
                 return args
@@ -302,13 +307,14 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             fields:{
                 ...metas.reduce((mutations,meta)=>{
                     const modelType = context.outputObjectTypePool[meta.name]
-                    const convertedInputType = mapMetaToInputType(meta,context)
+                    const modelReadType = mapMetaToInputType(meta,context,'Read')
+                    const modelWriteType = mapMetaToInputType(meta, context, 'Write')
                     const addModelMutationName = 'add'+capitalize(meta.name)
                     mutations[addModelMutationName] = {
                         type:modelType,
                         args:{
                             payload:{
-                                type:convertedInputType
+                                type:modelWriteType
                             }
                         },
                         resolve:async (source,args,context,info)=>{
@@ -324,10 +330,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         type:modelType,
                         args:{
                             condition:{
-                                type:convertedInputType
+                                type:modelReadType
                             },
                             payload:{
-                                type:convertedInputType
+                                type:modelWriteType
                             }
                         },
                         resolve:async (source,args,context,info)=>{
@@ -343,10 +349,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         type:GraphQLInt,
                         args:{
                             condition:{
-                                type:convertedInputType
+                                type:modelReadType
                             },
                             payload:{
-                                type:convertedInputType
+                                type:modelWriteType
                             }
                         },
                         resolve:async (source,args,context,info)=>{
@@ -363,7 +369,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         type:GraphQLInt,
                         args:{
                             condition:{
-                                type:convertedInputType
+                                type:modelReadType
                             }
                         },
                         resolve:async (source,args,context,info)=>{

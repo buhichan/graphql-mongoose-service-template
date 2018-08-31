@@ -139,17 +139,20 @@ function mapMetaToOutputType(field, context, path) {
             return graphql_1.GraphQLString; //includes string and ref
     }
 }
-function mapMetaToInputType(meta, context) {
+function mapMetaToInputType(meta, context, operationType) {
     if (!meta)
         return null;
-    if (meta.type === 'ref')
-        return graphql_1.GraphQLString;
-    else if (meta.type === 'object') {
-        if (!context.inputObjectTypePool[meta.name])
-            context.inputObjectTypePool[meta.name] = new graphql_1.GraphQLInputObjectType({
-                name: "_" + meta.name,
+    if (meta.readonly && operationType === 'Write')
+        return null;
+    if (meta.writeonly && operationType === 'Read')
+        return null;
+    if (meta.type === 'object') {
+        var inputObjectTypeName = operationType + capitalize(meta.name);
+        if (!context.inputObjectTypePool[inputObjectTypeName])
+            context.inputObjectTypePool[inputObjectTypeName] = new graphql_1.GraphQLInputObjectType({
+                name: inputObjectTypeName,
                 fields: function () { return meta.fields.reduce(function (inputFields, fieldMeta) {
-                    var converted = mapMetaToInputType(fieldMeta, context);
+                    var converted = mapMetaToInputType(fieldMeta, context, operationType);
                     if (converted)
                         inputFields[fieldMeta.name] = {
                             type: converted,
@@ -158,10 +161,10 @@ function mapMetaToInputType(meta, context) {
                     return inputFields;
                 }, {}); }
             });
-        return context.inputObjectTypePool[meta.name];
+        return context.inputObjectTypePool[inputObjectTypeName];
     }
     else if (meta.type === 'array') {
-        var item = mapMetaToInputType(meta.item, context);
+        var item = mapMetaToInputType(meta.item, context, operationType);
         if (!item)
             return null;
         return new graphql_1.GraphQLList(item);
@@ -269,16 +272,19 @@ function makeGraphQLSchema(options) {
         {
             name: "_id",
             label: "ID",
-            type: "string"
+            type: "string",
+            readonly: true
         },
         {
             name: "createdAt",
             label: "创建时间",
-            type: "date"
+            type: "date",
+            readonly: true
         }, {
             name: "updatedAt",
             label: "更新时间",
-            type: "date"
+            type: "date",
+            readonly: true
         }
     ];
     metas = metas.filter(function (x) { return x && x.type === "object"; }).map(function (modelMeta) {
@@ -295,7 +301,7 @@ function makeGraphQLSchema(options) {
                 var argMeta = mutationMeta.args[argName];
                 if (argMeta.meta)
                     args[argName] = {
-                        type: mapMetaToInputType(argMeta.meta, context),
+                        type: mapMetaToInputType(argMeta.meta, context, 'Any'),
                         defaultValue: mutationMeta.args[argName].defaultValue
                     };
                 return args;
@@ -365,13 +371,14 @@ function makeGraphQLSchema(options) {
             name: "Mutation",
             fields: __assign({}, metas.reduce(function (mutations, meta) {
                 var modelType = context.outputObjectTypePool[meta.name];
-                var convertedInputType = mapMetaToInputType(meta, context);
+                var modelReadType = mapMetaToInputType(meta, context, 'Read');
+                var modelWriteType = mapMetaToInputType(meta, context, 'Write');
                 var addModelMutationName = 'add' + capitalize(meta.name);
                 mutations[addModelMutationName] = {
                     type: modelType,
                     args: {
                         payload: {
-                            type: convertedInputType
+                            type: modelWriteType
                         }
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
@@ -399,10 +406,10 @@ function makeGraphQLSchema(options) {
                     type: modelType,
                     args: {
                         condition: {
-                            type: convertedInputType
+                            type: modelReadType
                         },
                         payload: {
-                            type: convertedInputType
+                            type: modelWriteType
                         }
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
@@ -430,10 +437,10 @@ function makeGraphQLSchema(options) {
                     type: graphql_1.GraphQLInt,
                     args: {
                         condition: {
-                            type: convertedInputType
+                            type: modelReadType
                         },
                         payload: {
-                            type: convertedInputType
+                            type: modelWriteType
                         }
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
@@ -462,7 +469,7 @@ function makeGraphQLSchema(options) {
                     type: graphql_1.GraphQLInt,
                     args: {
                         condition: {
-                            type: convertedInputType
+                            type: modelReadType
                         }
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {

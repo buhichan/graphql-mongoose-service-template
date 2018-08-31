@@ -25,7 +25,10 @@ export interface IMeta {
     item?:IMeta,
     enum?:string[]
     ref?:string,
+
     validate?:IMetaConstraint
+    readonly?:boolean
+    writeonly?:boolean
 }
 
 function buildMeta(nestLevel:number){

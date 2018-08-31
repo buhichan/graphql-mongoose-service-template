@@ -6,6 +6,7 @@ import { Mongoose } from "mongoose";
 import graphiql from "./graphiql";
 import { IMeta } from "../src";
 
+
 export async function bootstrap(){
     const {makeModelFromMeta,metaOfMeta,restfulRoutes,makeGraphQLPlugin } = await import("../src")
 
@@ -24,8 +25,8 @@ export async function bootstrap(){
             stripTrailingSlash: true
         }
     });
-    const uri = "mongodb://192.168.150.135:27002/test"
-    // const uri = "mongodb://localhost:27017/graphql-test"
+    // const uri = "mongodb://192.168.150.135:27002/test"
+    const uri = "mongodb://localhost:27017/graphql-test"
     const connection = await new Mongoose().createConnection(uri,{
         useNewUrlParser:true
     })
@@ -39,18 +40,20 @@ export async function bootstrap(){
         const meta = x.toObject()
         // makeModelFromMeta(meta)
         return meta as IMeta
-    }).concat({
-        name:"test",
-        type:"object",
-        label:"test",
-        fields:[
-            {
-                name:"any",
-                type:"any",
-                label:"any"
-            }
-        ]
-    })
+    }).concat([
+        {
+            name:"test",
+            type:"object",
+            label:"test",
+            fields:[
+                {
+                    name:"any",
+                    type:"any",
+                    label:"any"
+                }
+            ]
+        },
+    ])
     console.log(`Metas loaded.`)
 
     await Promise.all(allMetas.map(meta=>makeModelFromMeta({connection,meta})))

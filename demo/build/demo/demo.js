@@ -94,7 +94,7 @@ function bootstrap() {
                             stripTrailingSlash: true
                         }
                     });
-                    uri = "mongodb://192.168.150.135:27002/test";
+                    uri = "mongodb://localhost:27017/graphql-test";
                     return [4 /*yield*/, new mongoose_1.Mongoose().createConnection(uri, {
                             useNewUrlParser: true
                         })];
@@ -113,18 +113,20 @@ function bootstrap() {
                         var meta = x.toObject();
                         // makeModelFromMeta(meta)
                         return meta;
-                    }).concat({
-                        name: "test",
-                        type: "object",
-                        label: "test",
-                        fields: [
-                            {
-                                name: "any",
-                                type: "any",
-                                label: "any"
-                            }
-                        ]
-                    });
+                    }).concat([
+                        {
+                            name: "test",
+                            type: "object",
+                            label: "test",
+                            fields: [
+                                {
+                                    name: "any",
+                                    type: "any",
+                                    label: "any"
+                                }
+                            ]
+                        },
+                    ]);
                     console.log("Metas loaded.");
                     return [4 /*yield*/, Promise.all(allMetas.map(function (meta) { return makeModelFromMeta({ connection: connection, meta: meta }); }))];
                 case 5:
