@@ -96,7 +96,7 @@ export function validateData(data:any,meta:IMeta):{
             case meta.type === 'any':
                 return true
             case meta.type === 'number':
-                return typeof data === 'string'
+                return typeof data === 'number'
             case meta.type === 'string':
                 return typeof data === 'string'
             case meta.type === 'boolean':
