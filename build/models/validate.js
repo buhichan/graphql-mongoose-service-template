@@ -63,7 +63,7 @@ function applyMetaValidator(data, validate) {
 }
 exports.applyMetaValidator = applyMetaValidator;
 function MetaValidationError(name) {
-    throw new Error("Meta Validation Error: " + name);
+    throw new Error("graphql-mongoose-connector has detected a meta validation error: " + name);
 }
 exports.MetaValidationError = MetaValidationError;
 function validateData(data, meta) {

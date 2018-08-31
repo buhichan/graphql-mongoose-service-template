@@ -63,7 +63,7 @@ function makeModelFromMeta(options) {
         var schema = new mongoose_1.Schema(def, __assign({ timestamps: true }, schemaOptions, { typeKey: typeKey }));
         schema.pre("validate", function (next) {
             if (!validate_1.validateData(this.toJSON(), meta))
-                next(new mongoose_1.ValidationError("Validation Error: " + meta.name));
+                next(validate_1.MetaValidationError(meta.name));
             else
                 next();
         });

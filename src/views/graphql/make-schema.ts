@@ -1,6 +1,6 @@
 import { GraphqlPluginOptions } from "./graphql";
 import { makeModelGetter, deepGet } from "../../utils";
-import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType, GraphQLFieldConfigArgumentMap } from "graphql";
+import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType, GraphQLFieldConfigArgumentMap, GraphQLNonNull } from "graphql";
 import { Model } from "mongoose";
 import { IMeta, metaOfMeta } from "../../models/meta";
 import { GraphQLAny } from "./type/any";
@@ -43,6 +43,8 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
     switch(true){
         case !field:
             return null
+        case field.name === "_id":
+            return GraphQLID
         case ('enum' in field && field.enum instanceof Array && field.enum.length > 0):{
             const enumList:string[] = field['enum'];
             if(!context.enumTypePoll[field.name]){
@@ -248,6 +250,8 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         return mapMetaToOutputType(modelMeta,context,[]) as GraphQLObjectType
     })
 
+    const IDType = new GraphQLNonNull(GraphQLID)
+
     const schema = new GraphQLSchema({
         query:new GraphQLObjectType({
             name:"Root",
@@ -281,8 +285,8 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             fields:{
                 ...metas.reduce((mutations,meta)=>{
                     const modelType = context.outputObjectTypePool[meta.name]
-                    const modelReadType = mapMetaToInputType(meta,context,'Read')
-                    const modelWriteType = mapMetaToInputType(meta, context, 'Write')
+                    const modelReadType = new GraphQLNonNull(mapMetaToInputType(meta,context,'Read'))
+                    const modelWriteType = new GraphQLNonNull(mapMetaToInputType(meta, context, 'Write'))
                     const addModelMutationName = 'add'+capitalize(meta.name)
                     mutations[addModelMutationName] = {
                         type:modelType,
@@ -303,8 +307,8 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                     mutations[updateModelMutationName] = {
                         type:modelType,
                         args:{
-                            condition:{
-                                type:modelReadType
+                            _id:{
+                                type:IDType,
                             },
                             payload:{
                                 type:modelWriteType
@@ -312,7 +316,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            const res = await model.findOneAndUpdate(args.condition,args.payload).exec()
+                            const res = await model.findByIdAndUpdate(args._id,args.payload).exec()
                             if(onMutation[updateModelMutationName])
                                 await onMutation[updateModelMutationName](args,res)
                             return res
@@ -342,21 +346,20 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                     mutations[deleteModelMutationName] = {
                         type:GraphQLInt,
                         args:{
-                            condition:{
-                                type:modelReadType
+                            _id:{
+                                type:IDType
                             }
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            const deleteResult = await model.deleteMany(args.condition).exec()
-                            const res = deleteResult ? deleteResult.n : 0
+                            const res = await model.findByIdAndRemove(args._id).exec()
                             if(onMutation[deleteModelMutationName])
                                 await onMutation[deleteModelMutationName](args,res)
-                            return res
+                            return !!res?1:0
                         }
                     }
                     return mutations
-                },{}),
+                },{} as GraphQLFieldConfigMap<void,any>),
                 ...buildCustomMutations(mutationMetas, context, onMutation)
             }
         })

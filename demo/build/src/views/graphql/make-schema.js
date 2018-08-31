@@ -96,6 +96,8 @@ function mapMetaToOutputType(field, context, path) {
     switch (true) {
         case !field:
             return null;
+        case field.name === "_id":
+            return graphql_1.GraphQLID;
         case ('enum' in field && field.enum instanceof Array && field.enum.length > 0): {
             var enumList = field['enum'];
             if (!context.enumTypePoll[field.name]) {
@@ -296,6 +298,7 @@ function makeGraphQLSchema(options) {
     var rootTypes = metas.map(function (modelMeta) {
         return mapMetaToOutputType(modelMeta, context, []);
     });
+    var IDType = new graphql_1.GraphQLNonNull(graphql_1.GraphQLID);
     var schema = new graphql_1.GraphQLSchema({
         query: new graphql_1.GraphQLObjectType({
             name: "Root",
@@ -336,8 +339,8 @@ function makeGraphQLSchema(options) {
             name: "Mutation",
             fields: __assign({}, metas.reduce(function (mutations, meta) {
                 var modelType = context.outputObjectTypePool[meta.name];
-                var modelReadType = mapMetaToInputType(meta, context, 'Read');
-                var modelWriteType = mapMetaToInputType(meta, context, 'Write');
+                var modelReadType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, 'Read'));
+                var modelWriteType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, 'Write'));
                 var addModelMutationName = 'add' + capitalize(meta.name);
                 mutations[addModelMutationName] = {
                     type: modelType,
@@ -370,8 +373,8 @@ function makeGraphQLSchema(options) {
                 mutations[updateModelMutationName] = {
                     type: modelType,
                     args: {
-                        condition: {
-                            type: modelReadType
+                        _id: {
+                            type: IDType,
                         },
                         payload: {
                             type: modelWriteType
@@ -384,7 +387,7 @@ function makeGraphQLSchema(options) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [4 /*yield*/, model.findOneAndUpdate(args.condition, args.payload).exec()];
+                                    return [4 /*yield*/, model.findByIdAndUpdate(args._id, args.payload).exec()];
                                 case 2:
                                     res = _a.sent();
                                     if (!onMutation[updateModelMutationName]) return [3 /*break*/, 4];
@@ -433,27 +436,26 @@ function makeGraphQLSchema(options) {
                 mutations[deleteModelMutationName] = {
                     type: graphql_1.GraphQLInt,
                     args: {
-                        condition: {
-                            type: modelReadType
+                        _id: {
+                            type: IDType
                         }
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
-                        var model, deleteResult, res;
+                        var model, res;
                         return __generator(this, function (_a) {
                             switch (_a.label) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [4 /*yield*/, model.deleteMany(args.condition).exec()];
+                                    return [4 /*yield*/, model.findByIdAndRemove(args._id).exec()];
                                 case 2:
-                                    deleteResult = _a.sent();
-                                    res = deleteResult ? deleteResult.n : 0;
+                                    res = _a.sent();
                                     if (!onMutation[deleteModelMutationName]) return [3 /*break*/, 4];
                                     return [4 /*yield*/, onMutation[deleteModelMutationName](args, res)];
                                 case 3:
                                     _a.sent();
                                     _a.label = 4;
-                                case 4: return [2 /*return*/, res];
+                                case 4: return [2 /*return*/, !!res ? 1 : 0];
                             }
                         });
                     }); }

@@ -1,6 +1,6 @@
 import { metaOfMeta,IMeta, fieldTypes} from "./meta"
-import { Connection, Document, Schema, SchemaOptions, SchemaDefinition, ValidationError } from "mongoose";
-import { validateData } from "./validate";
+import { Connection, Document, Schema, SchemaOptions, SchemaDefinition } from "mongoose";
+import { validateData, MetaValidationError } from "./validate";
 
 const typeKey = '$type'
 export interface TypedDocument<T> extends Document {
@@ -68,7 +68,7 @@ export function makeModelFromMeta<T=any>(options:MakeModelOptions<T>){
         })
         schema.pre("validate",function(this:Document,next:any){
             if(!validateData(this.toJSON(),meta))
-                next(new ValidationError("Validation Error: "+meta.name))
+                next(MetaValidationError(meta.name))
             else
                 next()
         })
