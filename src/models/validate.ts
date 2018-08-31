@@ -1,4 +1,5 @@
 import { IMeta } from "./meta";
+import { valid } from "joi";
 
 export type IMetaConstraint = boolean | {
     anyOf?:IMetaConstraint[]
@@ -58,7 +59,7 @@ export const fieldValidator:IMetaConstraint = {
     ]
 }
 
-export function applyMetaValidator(data:any,validate:IMetaConstraint){
+export function applyMetaValidator(data:any,validate:IMetaConstraint):boolean{
     if(typeof validate === 'boolean')
         return !!data === validate
     if(validate === undefined)
@@ -78,41 +79,76 @@ export function applyMetaValidator(data:any,validate:IMetaConstraint){
     )
 }
 
-export function MetaValidationError(name){
-    throw new Error(`graphql-mongoose-connector has detected a meta validation error: ${name}`)
+export function MetaValidationError(res:ReturnType<typeof validateData>){
+    throw new Error(`Meta validation error: ${res.map(x=>`${x.path}:${x.message}`).join("\n")}`)
 }
 
 
 
-export function validateData(data:any,meta:IMeta){
-    switch(true){
-        case meta.name === "_id":
-            return true
-        case meta.enum instanceof Array && meta.enum.length > 1:
-            return meta.enum.includes(data)
-        case meta.type === 'any':
-            return true
-        case meta.type === 'number':
-            return typeof data === 'string'
-        case meta.type === 'string':
-            return typeof data === 'string'
-        case meta.type === 'boolean':
-            return data === true || data === false
-        case meta.type === 'date':
-            return isFinite(new Date(data).getTime())
-        case meta.type === 'ref':
-            return true //todo: don't know what to do.
-        case meta.type === 'array':
-            return data instanceof Array && data.every(item=>validateData(item, meta.item))
-        case meta.type === 'object':{
-            if(typeof data !== 'object')
+export function validateData(data:any,meta:IMeta):{
+    path:string,
+    message:string
+}[]{
+    function validateDataType(){
+        switch(true){
+            case meta.name === "_id":
+                return true
+            case meta.enum instanceof Array && meta.enum.length > 1:
+                return meta.enum.includes(data)
+            case meta.type === 'any':
+                return true
+            case meta.type === 'number':
+                return typeof data === 'string'
+            case meta.type === 'string':
+                return typeof data === 'string'
+            case meta.type === 'boolean':
+                return data === true || data === false
+            case meta.type === 'date':
+                return isFinite(new Date(data).getTime())
+            case meta.type === 'ref':
+                return true //todo: don't know what to do.
+            case meta.type === 'array':
+                return data instanceof Array
+            case meta.type === 'object':{
+                return typeof data === 'object'
+            }
+            default:
                 return false
-            return ( 
-                (!meta.validate || applyMetaValidator(data,meta.validate)) &&
-                meta.fields.every(field=>data[field.name] == undefined || validateData(data[field.name],field))
-            )
         }
-        default:
-            return false
     }
+    const typeValid = validateDataType()
+    if(!typeValid)
+        return [{
+            path:meta.name,
+            message:`expect type ${meta.type}, receive ${String(data)}`
+        }]
+    else if(meta.type === 'array'){
+        return data.reduce((errors,item)=>{
+            return errors.concat(validateData(item, meta.item).map(childError=>{
+                return {
+                    path: meta.name + "." + childError.path,
+                    message:childError.message
+                }
+            }))
+        },[])
+    }
+    else if(meta.type === 'object'){
+        const validatorPassed = meta.validate ? applyMetaValidator(data,meta.validate) : true
+        if(!validatorPassed)
+            return [{
+                path: meta.name,
+                message:"meta.validate failed"
+            }]
+        return meta.fields.reduce((errors,field)=>{
+            if(data[field.name] != undefined)
+                return errors.concat(validateData(data[field.name],field).map(childError=>{
+                    return {
+                        path: meta.name + "." + childError.path,
+                        message:childError.message
+                    }
+                }))
+            return errors
+        },[])
+    }else
+        return []
 }

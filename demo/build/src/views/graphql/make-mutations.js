@@ -59,9 +59,9 @@ function buildCustomMutations(mutationMetas, context, onMutation) {
                     switch (_a.label) {
                         case 0:
                             Object.keys(mutationMeta.args).forEach(function (argName) {
-                                if (!validate_1.validateData(args[argName], mutationMeta.args[argName].meta)) {
-                                    throw validate_1.MetaValidationError(argName);
-                                }
+                                var validationResult = validate_1.validateData(args[argName], mutationMeta.args[argName].meta);
+                                if (validationResult.length)
+                                    throw validate_1.MetaValidationError(validationResult);
                             });
                             return [4 /*yield*/, mutationMeta.resolve(args, context)];
                         case 1:

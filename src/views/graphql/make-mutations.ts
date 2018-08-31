@@ -24,9 +24,9 @@ export function buildCustomMutations<Context,Args>(
             },{} as GraphQLFieldConfigArgumentMap),
             resolve:async (_,args,context)=>{
                 Object.keys(mutationMeta.args).forEach(argName=>{
-                    if(!validateData(args[argName],mutationMeta.args[argName].meta)){
-                        throw MetaValidationError(argName)
-                    }
+                    const validationResult = validateData(args[argName],mutationMeta.args[argName].meta)
+                    if(validationResult.length)
+                        throw MetaValidationError(validationResult)
                 })
                 const res = await mutationMeta.resolve(args,context)
                 if(onMutation[mutationName])

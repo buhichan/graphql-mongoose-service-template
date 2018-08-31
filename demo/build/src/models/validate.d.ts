@@ -12,6 +12,9 @@ export declare type IMetaConstraint = boolean | {
     const?: any;
 };
 export declare const fieldValidator: IMetaConstraint;
-export declare function applyMetaValidator(data: any, validate: IMetaConstraint): any;
-export declare function MetaValidationError(name: any): void;
-export declare function validateData(data: any, meta: IMeta): any;
+export declare function applyMetaValidator(data: any, validate: IMetaConstraint): boolean;
+export declare function MetaValidationError(res: ReturnType<typeof validateData>): void;
+export declare function validateData(data: any, meta: IMeta): {
+    path: string;
+    message: string;
+}[];

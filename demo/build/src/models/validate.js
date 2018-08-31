@@ -62,39 +62,74 @@ function applyMetaValidator(data, validate) {
         })()));
 }
 exports.applyMetaValidator = applyMetaValidator;
-function MetaValidationError(name) {
-    throw new Error("graphql-mongoose-connector has detected a meta validation error: " + name);
+function MetaValidationError(res) {
+    throw new Error("Meta validation error: " + res.map(function (x) { return x.path + ":" + x.message; }).join("\n"));
 }
 exports.MetaValidationError = MetaValidationError;
 function validateData(data, meta) {
-    switch (true) {
-        case meta.name === "_id":
-            return true;
-        case meta.enum instanceof Array && meta.enum.length > 1:
-            return meta.enum.includes(data);
-        case meta.type === 'any':
-            return true;
-        case meta.type === 'number':
-            return typeof data === 'string';
-        case meta.type === 'string':
-            return typeof data === 'string';
-        case meta.type === 'boolean':
-            return data === true || data === false;
-        case meta.type === 'date':
-            return isFinite(new Date(data).getTime());
-        case meta.type === 'ref':
-            return true; //todo: don't know what to do.
-        case meta.type === 'array':
-            return data instanceof Array && data.every(function (item) { return validateData(item, meta.item); });
-        case meta.type === 'object': {
-            if (typeof data !== 'object')
+    function validateDataType() {
+        switch (true) {
+            case meta.name === "_id":
+                return true;
+            case meta.enum instanceof Array && meta.enum.length > 1:
+                return meta.enum.includes(data);
+            case meta.type === 'any':
+                return true;
+            case meta.type === 'number':
+                return typeof data === 'string';
+            case meta.type === 'string':
+                return typeof data === 'string';
+            case meta.type === 'boolean':
+                return data === true || data === false;
+            case meta.type === 'date':
+                return isFinite(new Date(data).getTime());
+            case meta.type === 'ref':
+                return true; //todo: don't know what to do.
+            case meta.type === 'array':
+                return data instanceof Array;
+            case meta.type === 'object': {
+                return typeof data === 'object';
+            }
+            default:
                 return false;
-            return ((!meta.validate || applyMetaValidator(data, meta.validate)) &&
-                meta.fields.every(function (field) { return data[field.name] == undefined || validateData(data[field.name], field); }));
         }
-        default:
-            return false;
     }
+    var typeValid = validateDataType();
+    if (!typeValid)
+        return [{
+                path: meta.name,
+                message: "expect type " + meta.type + ", receive " + String(data)
+            }];
+    else if (meta.type === 'array') {
+        return data.reduce(function (errors, item) {
+            return errors.concat(validateData(item, meta.item).map(function (childError) {
+                return {
+                    path: meta.name + "." + childError.path,
+                    message: childError.message
+                };
+            }));
+        }, []);
+    }
+    else if (meta.type === 'object') {
+        var validatorPassed = meta.validate ? applyMetaValidator(data, meta.validate) : true;
+        if (!validatorPassed)
+            return [{
+                    path: meta.name,
+                    message: "meta.validate failed"
+                }];
+        return meta.fields.reduce(function (errors, field) {
+            if (data[field.name] != undefined)
+                return errors.concat(validateData(data[field.name], field).map(function (childError) {
+                    return {
+                        path: meta.name + "." + childError.path,
+                        message: childError.message
+                    };
+                }));
+            return errors;
+        }, []);
+    }
+    else
+        return [];
 }
 exports.validateData = validateData;
 //# sourceMappingURL=validate.js.map

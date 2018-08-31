@@ -67,8 +67,9 @@ export function makeModelFromMeta<T=any>(options:MakeModelOptions<T>){
             typeKey:typeKey
         })
         schema.pre("validate",function(this:Document,next:any){
-            if(!validateData(this.toJSON(),meta))
-                next(MetaValidationError(meta.name))
+            const validationResult = validateData(this.toJSON(),meta)
+            if(validationResult.length)
+                next(MetaValidationError(validationResult))
             else
                 next()
         })

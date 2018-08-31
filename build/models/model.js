@@ -62,8 +62,9 @@ function makeModelFromMeta(options) {
         var def = mapSchemaDefinition(makeSchemaDefinition(meta.fields));
         var schema = new mongoose_1.Schema(def, __assign({ timestamps: true }, schemaOptions, { typeKey: typeKey }));
         schema.pre("validate", function (next) {
-            if (!validate_1.validateData(this.toJSON(), meta))
-                next(validate_1.MetaValidationError(meta.name));
+            var validationResult = validate_1.validateData(this.toJSON(), meta);
+            if (validationResult.length)
+                next(validate_1.MetaValidationError(validationResult));
             else
                 next();
         });

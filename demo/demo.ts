@@ -25,8 +25,8 @@ export async function bootstrap(){
             stripTrailingSlash: true
         }
     });
-    // const uri = "mongodb://192.168.150.135:27002/test"
-    const uri = "mongodb://localhost:27017/graphql-test"
+    const uri = "mongodb://192.168.150.135:27002/test"
+    // const uri = "mongodb://localhost:27017/graphql-test"
     const connection = await new Mongoose().createConnection(uri,{
         useNewUrlParser:true
     })
