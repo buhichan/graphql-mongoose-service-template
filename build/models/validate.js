@@ -71,8 +71,6 @@ function validateData(data, meta) {
         switch (true) {
             case meta.name === "_id":
                 return true;
-            case meta.enum instanceof Array && meta.enum.length > 1:
-                return meta.enum.includes(data);
             case meta.type === 'any':
                 return true;
             case meta.type === 'number':
@@ -94,11 +92,16 @@ function validateData(data, meta) {
                 return false;
         }
     }
+    if (meta.enum && meta.enum.length && !meta.enum.includes(data))
+        return [{
+                path: meta.name,
+                message: "expect one of " + meta.enum.join(",") + ", received " + String(data)
+            }];
     var typeValid = validateDataType();
     if (!typeValid)
         return [{
                 path: meta.name,
-                message: "expect type " + meta.type + ", receive " + String(data)
+                message: "expect type " + meta.type + ", received " + String(data)
             }];
     else if (meta.type === 'array') {
         return data.reduce(function (errors, item) {
