@@ -150,6 +150,8 @@ function mapMetaToInputType(meta, context, operationType) {
         return null;
     if (meta.writeonly && operationType === 'Read')
         return null;
+    if (meta.type === "ref")
+        return graphql_1.GraphQLString;
     if (meta.type === 'object') {
         var inputObjectTypeName = operationType + capitalize(meta.name);
         if (!context.inputObjectTypePool[inputObjectTypeName])

@@ -94,6 +94,8 @@ export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,operatio
         return null
     if(meta.writeonly && operationType === 'Read')
         return null
+    if(meta.type === "ref")
+        return GraphQLString
     if(meta.type==='object'){
         const inputObjectTypeName = operationType + capitalize(meta.name)
         if(!context.inputObjectTypePool[inputObjectTypeName])
