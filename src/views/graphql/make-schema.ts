@@ -1,13 +1,14 @@
 import { GraphqlPluginOptions } from "./graphql";
 import { makeModelGetter, deepGet } from "../../utils";
 import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType, GraphQLFieldConfigArgumentMap } from "graphql";
-import { Model, Document } from "mongoose";
+import { Model } from "mongoose";
 import { IMeta, metaOfMeta } from "../../models/meta";
 import { GraphQLAny } from "./type/any";
-import { MetaValidationError, validateData } from "../../models/validate";
+import { validateData } from "../../models/validate";
+import { buildCustomMutations } from "./make-mutations";
 
 
-type TypeMapperContext = {
+export type TypeMapperContext = {
     getResolver:(metaName:string, path: string[])=>GraphQLFieldConfig<void,void>['resolve'],
     getModel:(metaName:string)=>Model<any> | null
     outputObjectTypePool:{[name:string]:GraphQLOutputType}
@@ -38,7 +39,7 @@ function mapMetaToField(fieldMeta:IMeta,context:TypeMapperContext,path:string[])
     return field
 }
 
-function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]):GraphQLOutputType|null{
+export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]):GraphQLOutputType|null{
     switch(true){
         case !field:
             return null
@@ -84,7 +85,7 @@ function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:string[]
     }
 }
 
-function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,operationType:"Any"|"Read"|"Write"):GraphQLInputType|null{
+export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,operationType:"Any"|"Read"|"Write"):GraphQLInputType|null{
     if(!meta)
         return null
     if(meta.readonly && operationType === 'Write')
@@ -246,33 +247,6 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
     const rootTypes = metas.map(modelMeta=>{
         return mapMetaToOutputType(modelMeta,context,[]) as GraphQLObjectType
     })
-    const customMutations = Object.keys(mutationMetas).reduce((customMutations,mutationName)=>{
-        const mutationMeta = mutationMetas[mutationName]
-        customMutations[mutationName] = {
-            type:!mutationMeta.returns ? GraphQLBoolean : mapMetaToOutputType(mutationMeta.returns, context, []),
-            args:Object.keys(mutationMeta.args).reduce((args,argName)=>{
-                const argMeta = mutationMeta.args[argName]
-                if(argMeta.meta)
-                    args[argName] = {
-                        type: mapMetaToInputType(argMeta.meta, context, 'Any'),
-                        defaultValue: mutationMeta.args[argName].defaultValue
-                    }
-                return args
-            },{} as GraphQLFieldConfigArgumentMap),
-            resolve:async (_,args,context)=>{
-                Object.keys(mutationMeta.args).forEach(argName=>{
-                    if(!validateData(args[argName],mutationMeta.args[argName].meta)){
-                        throw MetaValidationError(argName)
-                    }
-                })
-                const res = await mutationMeta.resolve(args,context)
-                if(onMutation[mutationName])
-                    await onMutation[mutationName](args,res)
-                return res
-            }
-        }
-        return customMutations
-    },{} as GraphQLFieldConfigMap<void,any>)
 
     const schema = new GraphQLSchema({
         query:new GraphQLObjectType({
@@ -383,7 +357,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                     }
                     return mutations
                 },{}),
-                ...customMutations
+                ...buildCustomMutations(mutationMetas, context, onMutation)
             }
         })
     })

@@ -71,6 +71,7 @@ var graphql_1 = require("graphql");
 var meta_1 = require("../../models/meta");
 var any_1 = require("./type/any");
 var validate_1 = require("../../models/validate");
+var make_mutations_1 = require("./make-mutations");
 function capitalize(str) {
     if (!str)
         return str;
@@ -139,6 +140,7 @@ function mapMetaToOutputType(field, context, path) {
             return graphql_1.GraphQLString; //includes string and ref
     }
 }
+exports.mapMetaToOutputType = mapMetaToOutputType;
 function mapMetaToInputType(meta, context, operationType) {
     if (!meta)
         return null;
@@ -175,6 +177,7 @@ function mapMetaToInputType(meta, context, operationType) {
     else
         return null;
 }
+exports.mapMetaToInputType = mapMetaToInputType;
 var sortEnumType = new graphql_1.GraphQLEnumType({
     name: "SortDirection",
     values: {
@@ -293,44 +296,6 @@ function makeGraphQLSchema(options) {
     var rootTypes = metas.map(function (modelMeta) {
         return mapMetaToOutputType(modelMeta, context, []);
     });
-    var customMutations = Object.keys(mutationMetas).reduce(function (customMutations, mutationName) {
-        var mutationMeta = mutationMetas[mutationName];
-        customMutations[mutationName] = {
-            type: !mutationMeta.returns ? graphql_1.GraphQLBoolean : mapMetaToOutputType(mutationMeta.returns, context, []),
-            args: Object.keys(mutationMeta.args).reduce(function (args, argName) {
-                var argMeta = mutationMeta.args[argName];
-                if (argMeta.meta)
-                    args[argName] = {
-                        type: mapMetaToInputType(argMeta.meta, context, 'Any'),
-                        defaultValue: mutationMeta.args[argName].defaultValue
-                    };
-                return args;
-            }, {}),
-            resolve: function (_, args, context) { return __awaiter(_this, void 0, void 0, function () {
-                var res;
-                return __generator(this, function (_a) {
-                    switch (_a.label) {
-                        case 0:
-                            Object.keys(mutationMeta.args).forEach(function (argName) {
-                                if (!validate_1.validateData(args[argName], mutationMeta.args[argName].meta)) {
-                                    throw validate_1.MetaValidationError(argName);
-                                }
-                            });
-                            return [4 /*yield*/, mutationMeta.resolve(args, context)];
-                        case 1:
-                            res = _a.sent();
-                            if (!onMutation[mutationName]) return [3 /*break*/, 3];
-                            return [4 /*yield*/, onMutation[mutationName](args, res)];
-                        case 2:
-                            _a.sent();
-                            _a.label = 3;
-                        case 3: return [2 /*return*/, res];
-                    }
-                });
-            }); }
-        };
-        return customMutations;
-    }, {});
     var schema = new graphql_1.GraphQLSchema({
         query: new graphql_1.GraphQLObjectType({
             name: "Root",
@@ -494,7 +459,7 @@ function makeGraphQLSchema(options) {
                     }); }
                 };
                 return mutations;
-            }, {}), customMutations)
+            }, {}), make_mutations_1.buildCustomMutations(mutationMetas, context, onMutation))
         })
     });
     return schema;
