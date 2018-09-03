@@ -71,7 +71,7 @@ var graphql_1 = require("graphql");
 var meta_1 = require("../../models/meta");
 var any_1 = require("./type/any");
 var validate_1 = require("../../models/validate");
-var make_mutations_1 = require("./make-mutations");
+var make_custom_types_1 = require("./make-custom-types");
 function capitalize(str) {
     if (!str)
         return str;
@@ -87,9 +87,11 @@ function mapMetaToField(fieldMeta, context, path) {
     if (fieldMeta.type === 'ref' && fieldMeta.ref) {
         field.resolve = context.getResolver(fieldMeta.ref, path.slice(1).concat(fieldMeta.name));
     }
-    if (fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref) {
+    else if (fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref) {
         field.resolve = context.getResolver(fieldMeta.item.ref, path.slice(1).concat(fieldMeta.name));
     }
+    else if (fieldMeta.resolve)
+        field.resolve = function (_, args, context) { return fieldMeta.resolve(args, context); };
     return field;
 }
 //path不包括field.name
@@ -236,7 +238,7 @@ function convertSearchToFindOptions(search) {
 }
 function makeGraphQLSchema(options) {
     var _this = this;
-    var connection = options.connection, metas = options.metas, mutationMetas = options.mutations, _a = options.onMutation, onMutation = _a === void 0 ? {} : _a;
+    var connection = options.connection, metas = options.metas, _a = options.mutations, mutationMetas = _a === void 0 ? {} : _a, _b = options.queries, queryMetas = _b === void 0 ? {} : _b, _c = options.onMutation, onMutation = _c === void 0 ? {} : _c;
     options.metas.forEach(function (meta) {
         if (!validate_1.validateData(meta, meta_1.metaOfMeta))
             throw new Error("Invalid meta: " + meta.name);
@@ -302,40 +304,42 @@ function makeGraphQLSchema(options) {
         return mapMetaToOutputType(modelMeta, context, []);
     });
     var IDType = new graphql_1.GraphQLNonNull(graphql_1.GraphQLID);
+    var metaTypeQueries = rootTypes.reduce(function (query, type) {
+        var meta = metas.find(function (x) { return x.name === type.name; });
+        var resolve = function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
+            var model, findCondition, query_1;
+            return __generator(this, function (_a) {
+                switch (_a.label) {
+                    case 0: return [4 /*yield*/, getModel(type.name)];
+                    case 1:
+                        model = _a.sent();
+                        if (!model)
+                            return [2 /*return*/, []];
+                        else {
+                            findCondition = convertSearchToFindOptions(args.search);
+                            query_1 = model.find(findCondition)
+                                .sort(args.sort)
+                                .skip(args.skip);
+                            if (args.limit)
+                                return [2 /*return*/, query_1.limit(args.limit)];
+                            return [2 /*return*/, query_1];
+                        }
+                        return [2 /*return*/];
+                }
+            });
+        }); };
+        query[type.name] = {
+            type: new graphql_1.GraphQLList(type),
+            description: meta.label,
+            args: makeQueryArgs(meta, context),
+            resolve: resolve
+        };
+        return query;
+    }, {});
     var schema = new graphql_1.GraphQLSchema({
         query: new graphql_1.GraphQLObjectType({
             name: "Root",
-            fields: rootTypes.reduce(function (query, type) {
-                var meta = metas.find(function (x) { return x.name === type.name; });
-                query[type.name] = {
-                    type: new graphql_1.GraphQLList(type),
-                    description: meta.label,
-                    args: makeQueryArgs(meta, context),
-                    resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
-                        var model, findCondition, query_1;
-                        return __generator(this, function (_a) {
-                            switch (_a.label) {
-                                case 0: return [4 /*yield*/, getModel(type.name)];
-                                case 1:
-                                    model = _a.sent();
-                                    if (!model)
-                                        return [2 /*return*/, []];
-                                    else {
-                                        findCondition = convertSearchToFindOptions(args.search);
-                                        query_1 = model.find(findCondition)
-                                            .sort(args.sort)
-                                            .skip(args.skip);
-                                        if (args.limit)
-                                            return [2 /*return*/, query_1.limit(args.limit)];
-                                        return [2 /*return*/, query_1];
-                                    }
-                                    return [2 /*return*/];
-                            }
-                        });
-                    }); }
-                };
-                return query;
-            }, {}),
+            fields: __assign({}, metaTypeQueries, make_custom_types_1.makeCustomTypes(queryMetas, context, {})),
         }),
         types: rootTypes,
         mutation: new graphql_1.GraphQLObjectType({
@@ -466,7 +470,7 @@ function makeGraphQLSchema(options) {
                     }); }
                 };
                 return mutations;
-            }, {}), make_mutations_1.buildCustomMutations(mutationMetas, context, onMutation))
+            }, {}), make_custom_types_1.makeCustomTypes(mutationMetas, context, onMutation))
         })
     });
     return schema;

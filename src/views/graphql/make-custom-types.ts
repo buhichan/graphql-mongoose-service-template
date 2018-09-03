@@ -4,16 +4,17 @@ import { IMeta } from "../../models/meta";
 import { mapMetaToInputType, mapMetaToOutputType, TypeMapperContext } from "./make-schema";
 import { GraphqlPluginOptions } from "./graphql";
 
-export function buildCustomMutations<Context,Args>(
-    mutationMetas:GraphqlPluginOptions<Context>['mutations'],
+export function makeCustomTypes<Context>(
+    typeMetas:GraphqlPluginOptions<Context>['mutations'],
     context:TypeMapperContext,
     onMutation:GraphqlPluginOptions<Context>['onMutation']
 ){
-    return Object.keys(mutationMetas).reduce((customMutations,mutationName)=>{
-        const mutationMeta = mutationMetas[mutationName]
-        customMutations[mutationName] = {
+    return Object.keys(typeMetas).reduce((customTypes,typeName)=>{
+        const mutationMeta = typeMetas[typeName]
+        const argMetas = mutationMeta.args || {}
+        customTypes[typeName] = {
             type:!mutationMeta.returns ? GraphQLBoolean : mapMetaToOutputType(mutationMeta.returns, context, []),
-            args:Object.keys(mutationMeta.args).reduce((args,argName)=>{
+            args:Object.keys(argMetas).reduce((args,argName)=>{
                 const argMeta = mutationMeta.args[argName]
                 if(argMeta.meta)
                     args[argName] = {
@@ -23,17 +24,17 @@ export function buildCustomMutations<Context,Args>(
                 return args
             },{} as GraphQLFieldConfigArgumentMap),
             resolve:async (_,args,context)=>{
-                Object.keys(mutationMeta.args).forEach(argName=>{
+                Object.keys(argMetas).forEach(argName=>{
                     const validationResult = validateData(args[argName],mutationMeta.args[argName].meta)
                     if(validationResult.length)
                         throw MetaValidationError(validationResult)
                 })
                 const res = await mutationMeta.resolve(args,context)
-                if(onMutation[mutationName])
-                    await onMutation[mutationName](args,res)
+                if(onMutation && onMutation[typeName])
+                    await onMutation[typeName](args,res)
                 return res
             }
         }
-        return customMutations
+        return customTypes
     },{} as GraphQLFieldConfigMap<void,any>)
 }

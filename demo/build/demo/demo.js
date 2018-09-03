@@ -148,6 +148,37 @@ function bootstrap() {
                     });
                     graphQLPlugin = makeGraphQLPlugin({
                         metas: allMetas.concat(metaOfMeta),
+                        queries: {
+                            locations: {
+                                returns: {
+                                    name: "locations",
+                                    type: "array",
+                                    label: "Locations",
+                                    item: {
+                                        name: "option",
+                                        type: "object",
+                                        label: "Option",
+                                        fields: [
+                                            {
+                                                name: "name",
+                                                type: "string",
+                                                label: "Name"
+                                            }, {
+                                                name: "value",
+                                                type: "string",
+                                                label: "Value"
+                                            },
+                                        ]
+                                    }
+                                },
+                                resolve: function () {
+                                    return [
+                                        { name: "1", value: "2" },
+                                        { name: "3", value: "4" },
+                                    ];
+                                }
+                            },
+                        },
                         connection: connection,
                         onMutation: {
                             addMeta: reloadMetas,

@@ -60,6 +60,7 @@ export async function bootstrap(){
     console.log(`Models loaded.`)
 
     const alreadyDefined = new Set()
+    
     allMetas.concat(metaOfMeta).map(meta=>{
         if(alreadyDefined.has(meta.name)){
             alreadyDefined.add(meta.name)
@@ -86,6 +87,37 @@ export async function bootstrap(){
 
     const graphQLPlugin = makeGraphQLPlugin({
         metas:allMetas.concat(metaOfMeta),
+        queries:{
+            locations:{
+                returns:{
+                    name:"locations",
+                    type:"array",
+                    label:"Locations",
+                    item:{
+                        name:"option",
+                        type:"object",
+                        label:"Option",
+                        fields:[
+                            {
+                                name:"name",
+                                type:"string",
+                                label:"Name"
+                            },{
+                                name:"value",
+                                type:"string",
+                                label:"Value"
+                            },
+                        ]
+                    }
+                },
+                resolve(){
+                    return [
+                        {name:"1",value:"2"},
+                        {name:"3",value:"4"},
+                    ]
+                }
+            },
+        },
         connection,
         onMutation:{
             addMeta:reloadMetas,

@@ -5,7 +5,7 @@ import { Model } from "mongoose";
 import { IMeta, metaOfMeta } from "../../models/meta";
 import { GraphQLAny } from "./type/any";
 import { validateData } from "../../models/validate";
-import { buildCustomMutations } from "./make-mutations";
+import { makeCustomTypes } from "./make-custom-types";
 
 
 export type TypeMapperContext = {
@@ -23,7 +23,7 @@ function capitalize(str:string){
 }
 
 
-function mapMetaToField(fieldMeta:IMeta,context:TypeMapperContext,path:string[]){
+function mapMetaToField(fieldMeta:IMeta&{resolve?:(args:any,context:any)=>any},context:TypeMapperContext,path:string[]){
     const field:GraphQLFieldConfig<void,void> = {
         type:mapMetaToOutputType(fieldMeta, context, path),
         description:fieldMeta.label
@@ -33,9 +33,11 @@ function mapMetaToField(fieldMeta:IMeta,context:TypeMapperContext,path:string[])
     if(fieldMeta.type === 'ref' && fieldMeta.ref){
         field.resolve = context.getResolver(fieldMeta.ref,path.slice(1).concat(fieldMeta.name))
     }
-    if(fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref){
+    else if(fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref){
         field.resolve = context.getResolver(fieldMeta.item.ref,path.slice(1).concat(fieldMeta.name))
     }
+    else if(fieldMeta.resolve)
+        field.resolve = (_,args,context)=>fieldMeta.resolve(args,context)
     return field
 }
 
@@ -188,7 +190,8 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
     let {
         connection,
         metas,
-        mutations:mutationMetas,
+        mutations:mutationMetas = {},
+        queries:queryMetas = {},
         onMutation = {},
     } = options
     options.metas.forEach(meta=>{
@@ -255,32 +258,38 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
 
     const IDType = new GraphQLNonNull(GraphQLID)
 
+    const metaTypeQueries = rootTypes.reduce((query,type)=>{
+        const meta = metas.find(x=>x.name === type.name)
+        const resolve = async (source,args,context,info)=>{
+                const model = await getModel(type.name)
+                if(!model)
+                    return []
+                else {
+                    const findCondition = convertSearchToFindOptions(args.search)
+                    const query = model.find(findCondition)
+                        .sort(args.sort)
+                        .skip(args.skip)
+                    if(args.limit)
+                        return query.limit(args.limit)
+                    return query
+                }
+            }
+        query[type.name] = {
+            type:new GraphQLList(type),
+            description:meta.label,
+            args:makeQueryArgs(meta,context),
+            resolve
+        }
+        return query
+    },{} as GraphQLFieldConfigMap<any,any>)
+
     const schema = new GraphQLSchema({
         query:new GraphQLObjectType({
             name:"Root",
-            fields:rootTypes.reduce((query,type)=>{
-                const meta = metas.find(x=>x.name === type.name)
-                query[type.name] = {
-                    type:new GraphQLList(type),
-                    description:meta.label,
-                    args:makeQueryArgs(meta,context),
-                    resolve:async (source,args,context,info)=>{
-                        const model = await getModel(type.name)
-                        if(!model)
-                            return []
-                        else {
-                            const findCondition = convertSearchToFindOptions(args.search)
-                            const query = model.find(findCondition)
-                                .sort(args.sort)
-                                .skip(args.skip)
-                            if(args.limit)
-                                return query.limit(args.limit)
-                            return query
-                        }
-                    }
-                }
-                return query
-            },{} as GraphQLFieldConfigMap<any,any>),
+            fields:{
+                ...metaTypeQueries,
+                ...makeCustomTypes(queryMetas, context, {}),
+            },
         }),
         types:rootTypes,
         mutation:new GraphQLObjectType({
@@ -365,7 +374,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                     }
                     return mutations
                 },{} as GraphQLFieldConfigMap<void,any>),
-                ...buildCustomMutations(mutationMetas, context, onMutation)
+                ...makeCustomTypes(mutationMetas, context, onMutation)
             }
         })
     })
