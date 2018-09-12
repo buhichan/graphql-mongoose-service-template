@@ -50,6 +50,7 @@ var Hapi = require("hapi");
 var joi = require("joi");
 var mongoose_1 = require("mongoose");
 var graphiql_1 = require("./graphiql");
+var example_1 = require("./example");
 function bootstrap() {
     return __awaiter(this, void 0, void 0, function () {
         /**
@@ -147,7 +148,7 @@ function bootstrap() {
                         }
                     });
                     graphQLPlugin = makeGraphQLPlugin({
-                        metas: allMetas.concat(metaOfMeta),
+                        metas: allMetas.concat(metaOfMeta, example_1.Template),
                         queries: {
                             locations: {
                                 returns: {

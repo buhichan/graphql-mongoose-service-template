@@ -66,15 +66,18 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
         }
         case field.type==="boolean": return GraphQLBoolean
         case field.type==="array": {
-            const item = mapMetaToOutputType(field.item,context,path.concat(field.name))
+            // item's name must be equal to array's name, to ensure path is correct.
+            field.item.name = field.name
+            const item = mapMetaToOutputType(field.item,context,path)
             if(!item)
                 return null
             return new GraphQLList(item)
         }
         case field.type==="object" && field.fields instanceof Array && field.fields.length > 0: {
-            if(!context.outputObjectTypePool[field.name])
-                context.outputObjectTypePool[field.name] = new GraphQLObjectType({
-                    name:path.concat(field.name).join("__"),
+            const ObjectTypeUniqueName = path.concat(field.name).join("__")
+            if(!context.outputObjectTypePool[ObjectTypeUniqueName])
+                context.outputObjectTypePool[ObjectTypeUniqueName] = new GraphQLObjectType({
+                    name:ObjectTypeUniqueName,
                     description:field.label,
                     fields:()=>field.fields.reduce((fields,childMeta)=>{
                         const child = mapMetaToField(childMeta,context,path.concat(field.name))
@@ -83,7 +86,7 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
                         return fields
                     },{} as GraphQLFieldConfigMap<void,void>)
                 })
-            return context.outputObjectTypePool[field.name]
+            return context.outputObjectTypePool[ObjectTypeUniqueName]
         }
         default: 
             return GraphQLString //includes string and ref
@@ -100,10 +103,10 @@ export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,operatio
     if(meta.type === "ref")
         return GraphQLString
     if(meta.type==='object'){
-        const inputObjectTypeName = operationType + capitalize(meta.name)
-        if(!context.inputObjectTypePool[inputObjectTypeName])
-            context.inputObjectTypePool[inputObjectTypeName] = new GraphQLInputObjectType({
-                name:inputObjectTypeName,
+        const inputObjectTypeUniqueName = operationType + capitalize(meta.name)
+        if(!context.inputObjectTypePool[inputObjectTypeUniqueName])
+            context.inputObjectTypePool[inputObjectTypeUniqueName] = new GraphQLInputObjectType({
+                name:inputObjectTypeUniqueName,
                 fields:()=>meta.fields.reduce((inputFields,fieldMeta)=>{
                     const converted = mapMetaToInputType(fieldMeta, context,operationType)
                     if(converted)
@@ -114,7 +117,7 @@ export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,operatio
                     return inputFields
                 },{})
             })
-        return context.inputObjectTypePool[inputObjectTypeName]
+        return context.inputObjectTypePool[inputObjectTypeUniqueName]
     }
     else if(meta.type==='array'){
         const item = mapMetaToInputType(meta.item,context,operationType)

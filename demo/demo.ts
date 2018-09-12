@@ -5,6 +5,7 @@ import * as joi from "joi"
 import { Mongoose } from "mongoose";
 import graphiql from "./graphiql";
 import { IMeta } from "../src";
+import { Template } from "./example";
 
 
 export async function bootstrap(){
@@ -84,9 +85,8 @@ export async function bootstrap(){
             metas: (await MetaModel.find()).map(x=>x.toObject()).concat(metaOfMeta)
         })
     }
-
     const graphQLPlugin = makeGraphQLPlugin({
-        metas:allMetas.concat(metaOfMeta),
+        metas:allMetas.concat(metaOfMeta,Template),
         queries:{
             locations:{
                 returns:{

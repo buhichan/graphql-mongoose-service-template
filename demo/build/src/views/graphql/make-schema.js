@@ -122,15 +122,18 @@ function mapMetaToOutputType(field, context, path) {
         }
         case field.type === "boolean": return graphql_1.GraphQLBoolean;
         case field.type === "array": {
-            var item = mapMetaToOutputType(field.item, context, path.concat(field.name));
+            // item's name must be equal to array's name, to ensure path is correct.
+            field.item.name = field.name;
+            var item = mapMetaToOutputType(field.item, context, path);
             if (!item)
                 return null;
             return new graphql_1.GraphQLList(item);
         }
         case field.type === "object" && field.fields instanceof Array && field.fields.length > 0: {
-            if (!context.outputObjectTypePool[field.name])
-                context.outputObjectTypePool[field.name] = new graphql_1.GraphQLObjectType({
-                    name: path.concat(field.name).join("__"),
+            var ObjectTypeUniqueName = path.concat(field.name).join("__");
+            if (!context.outputObjectTypePool[ObjectTypeUniqueName])
+                context.outputObjectTypePool[ObjectTypeUniqueName] = new graphql_1.GraphQLObjectType({
+                    name: ObjectTypeUniqueName,
                     description: field.label,
                     fields: function () { return field.fields.reduce(function (fields, childMeta) {
                         var child = mapMetaToField(childMeta, context, path.concat(field.name));
@@ -139,7 +142,7 @@ function mapMetaToOutputType(field, context, path) {
                         return fields;
                     }, {}); }
                 });
-            return context.outputObjectTypePool[field.name];
+            return context.outputObjectTypePool[ObjectTypeUniqueName];
         }
         default:
             return graphql_1.GraphQLString; //includes string and ref
@@ -156,10 +159,10 @@ function mapMetaToInputType(meta, context, operationType) {
     if (meta.type === "ref")
         return graphql_1.GraphQLString;
     if (meta.type === 'object') {
-        var inputObjectTypeName = operationType + capitalize(meta.name);
-        if (!context.inputObjectTypePool[inputObjectTypeName])
-            context.inputObjectTypePool[inputObjectTypeName] = new graphql_1.GraphQLInputObjectType({
-                name: inputObjectTypeName,
+        var inputObjectTypeUniqueName = operationType + capitalize(meta.name);
+        if (!context.inputObjectTypePool[inputObjectTypeUniqueName])
+            context.inputObjectTypePool[inputObjectTypeUniqueName] = new graphql_1.GraphQLInputObjectType({
+                name: inputObjectTypeUniqueName,
                 fields: function () { return meta.fields.reduce(function (inputFields, fieldMeta) {
                     var converted = mapMetaToInputType(fieldMeta, context, operationType);
                     if (converted)
@@ -170,7 +173,7 @@ function mapMetaToInputType(meta, context, operationType) {
                     return inputFields;
                 }, {}); }
             });
-        return context.inputObjectTypePool[inputObjectTypeName];
+        return context.inputObjectTypePool[inputObjectTypeUniqueName];
     }
     else if (meta.type === 'array') {
         var item = mapMetaToInputType(meta.item, context, operationType);
