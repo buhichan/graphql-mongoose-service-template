@@ -85,7 +85,7 @@ function mapMetaToField(fieldMeta, context, path) {
     if (!fieldMeta.type)
         return null;
     if (fieldMeta.type === 'ref' && fieldMeta.ref) {
-        field.resolve = context.getResolver(fieldMeta.ref, path.slice(1).concat(fieldMeta.name));
+        field.resolve = context.getResolver(fieldMeta.ref, [fieldMeta.name]);
     }
     else if (fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref) {
         field.resolve = context.getResolver(fieldMeta.item.ref, path.slice(1).concat(fieldMeta.name));
@@ -117,8 +117,11 @@ function mapMetaToOutputType(field, context, path) {
         case field.type === "any": return any_1.GraphQLAny;
         case field.type === "date": return graphql_1.GraphQLString;
         case field.type === "number": return graphql_1.GraphQLInt;
-        case field.type === "ref" && field.ref in context.outputObjectTypePool: {
-            return context.outputObjectTypePool[field.ref];
+        case field.type === "ref" && Array.from(context.outputObjectTypePool.keys()).some(function (x) { return x.name === field.ref; }): {
+            return Array.from(context.outputObjectTypePool.entries()).find(function (_a) {
+                var _b = __read(_a, 2), meta = _b[0], type = _b[1];
+                return meta.name === field.ref;
+            })[1];
         }
         case field.type === "boolean": return graphql_1.GraphQLBoolean;
         case field.type === "array": {
@@ -131,8 +134,8 @@ function mapMetaToOutputType(field, context, path) {
         }
         case field.type === "object" && field.fields instanceof Array && field.fields.length > 0: {
             var ObjectTypeUniqueName = path.concat(field.name).join("__");
-            if (!context.outputObjectTypePool[ObjectTypeUniqueName])
-                context.outputObjectTypePool[ObjectTypeUniqueName] = new graphql_1.GraphQLObjectType({
+            if (!context.outputObjectTypePool.has(field))
+                context.outputObjectTypePool.set(field, new graphql_1.GraphQLObjectType({
                     name: ObjectTypeUniqueName,
                     description: field.label,
                     fields: function () { return field.fields.reduce(function (fields, childMeta) {
@@ -141,15 +144,15 @@ function mapMetaToOutputType(field, context, path) {
                             fields[childMeta.name] = child;
                         return fields;
                     }, {}); }
-                });
-            return context.outputObjectTypePool[ObjectTypeUniqueName];
+                }));
+            return context.outputObjectTypePool.get(field);
         }
         default:
             return graphql_1.GraphQLString; //includes string and ref
     }
 }
 exports.mapMetaToOutputType = mapMetaToOutputType;
-function mapMetaToInputType(meta, context, operationType) {
+function mapMetaToInputType(meta, context, path, operationType) {
     if (!meta)
         return null;
     if (meta.readonly && operationType === 'Write')
@@ -159,12 +162,12 @@ function mapMetaToInputType(meta, context, operationType) {
     if (meta.type === "ref")
         return graphql_1.GraphQLString;
     if (meta.type === 'object') {
-        var inputObjectTypeUniqueName = operationType + capitalize(meta.name);
-        if (!context.inputObjectTypePool[inputObjectTypeUniqueName])
-            context.inputObjectTypePool[inputObjectTypeUniqueName] = new graphql_1.GraphQLInputObjectType({
+        var inputObjectTypeUniqueName = operationType + path.join("__") + capitalize(meta.name);
+        if (!context.inputObjectTypePool.has(meta))
+            context.inputObjectTypePool.set(meta, new graphql_1.GraphQLInputObjectType({
                 name: inputObjectTypeUniqueName,
                 fields: function () { return meta.fields.reduce(function (inputFields, fieldMeta) {
-                    var converted = mapMetaToInputType(fieldMeta, context, operationType);
+                    var converted = mapMetaToInputType(fieldMeta, context, path.concat(meta.name), operationType);
                     if (converted)
                         inputFields[fieldMeta.name] = {
                             type: converted,
@@ -172,11 +175,11 @@ function mapMetaToInputType(meta, context, operationType) {
                         };
                     return inputFields;
                 }, {}); }
-            });
-        return context.inputObjectTypePool[inputObjectTypeUniqueName];
+            }));
+        return context.inputObjectTypePool.get(meta);
     }
     else if (meta.type === 'array') {
-        var item = mapMetaToInputType(meta.item, context, operationType);
+        var item = mapMetaToInputType(meta.item, context, path, operationType);
         if (!item)
             return null;
         return new graphql_1.GraphQLList(item);
@@ -248,12 +251,21 @@ function makeGraphQLSchema(options) {
     });
     var getModel = utils_1.makeModelGetter(connection);
     var getResolver = function (refName, path) {
-        return function (source) { return __awaiter(_this, void 0, void 0, function () {
-            var id, model;
+        return function (source, _, __, info) { return __awaiter(_this, void 0, void 0, function () {
+            var path, pathP, id, model;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        id = utils_1.deepGet(source, path);
+                        while (source.parent) {
+                            source = source.parent();
+                        }
+                        path = [];
+                        pathP = info.path;
+                        while (pathP) {
+                            path.unshift(pathP.key);
+                            pathP = pathP.prev;
+                        }
+                        id = utils_1.deepGet(source, path.slice(2));
                         if (!id)
                             return [2 /*return*/, null];
                         return [4 /*yield*/, getModel(refName)];
@@ -264,11 +276,11 @@ function makeGraphQLSchema(options) {
                         if (id instanceof Array)
                             return [2 /*return*/, model.find({
                                     _id: {
-                                        $in: id
+                                        $in: String(id)
                                     }
                                 })];
                         else
-                            return [2 /*return*/, model.findById(id)];
+                            return [2 /*return*/, model.findById(String(id))];
                         return [2 /*return*/];
                 }
             });
@@ -278,8 +290,8 @@ function makeGraphQLSchema(options) {
         getModel: getModel,
         getResolver: getResolver,
         enumTypePoll: {},
-        inputObjectTypePool: {},
-        outputObjectTypePool: {}
+        inputObjectTypePool: new Map(),
+        outputObjectTypePool: new Map()
     };
     var internalFields = [
         {
@@ -307,13 +319,13 @@ function makeGraphQLSchema(options) {
         return mapMetaToOutputType(modelMeta, context, []);
     });
     var IDType = new graphql_1.GraphQLNonNull(graphql_1.GraphQLID);
-    var metaTypeQueries = rootTypes.reduce(function (query, type) {
-        var meta = metas.find(function (x) { return x.name === type.name; });
+    var metaTypeQueries = rootTypes.reduce(function (query, type, i) {
+        var meta = metas[i];
         var resolve = function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
             var model, findCondition, query_1;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4 /*yield*/, getModel(type.name)];
+                    case 0: return [4 /*yield*/, getModel(meta.name)];
                     case 1:
                         model = _a.sent();
                         if (!model)
@@ -348,9 +360,9 @@ function makeGraphQLSchema(options) {
         mutation: new graphql_1.GraphQLObjectType({
             name: "Mutation",
             fields: __assign({}, metas.reduce(function (mutations, meta) {
-                var modelType = context.outputObjectTypePool[meta.name];
-                var modelReadType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, 'Read'));
-                var modelWriteType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, 'Write'));
+                var modelType = context.outputObjectTypePool.get(meta);
+                var modelReadType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, [], 'Read'));
+                var modelWriteType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, [], 'Write'));
                 var addModelMutationName = 'add' + capitalize(meta.name);
                 mutations[addModelMutationName] = {
                     type: modelType,

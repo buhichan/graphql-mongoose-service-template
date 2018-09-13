@@ -5,16 +5,12 @@ import { IMeta } from "../../models/meta";
 export declare type TypeMapperContext = {
     getResolver: (metaName: string, path: string[]) => GraphQLFieldConfig<void, void>['resolve'];
     getModel: (metaName: string) => Model<any> | null;
-    outputObjectTypePool: {
-        [name: string]: GraphQLOutputType;
-    };
-    inputObjectTypePool: {
-        [name: string]: GraphQLInputType;
-    };
+    outputObjectTypePool: Map<IMeta, GraphQLOutputType>;
+    inputObjectTypePool: Map<IMeta, GraphQLInputType>;
     enumTypePoll: {
         [name: string]: GraphQLEnumType;
     };
 };
 export declare function mapMetaToOutputType(field: IMeta, context: TypeMapperContext, path: string[]): GraphQLOutputType | null;
-export declare function mapMetaToInputType(meta: IMeta, context: TypeMapperContext, operationType: "Any" | "Read" | "Write"): GraphQLInputType | null;
+export declare function mapMetaToInputType(meta: IMeta, context: TypeMapperContext, path: string[], operationType: "Any" | "Read" | "Write"): GraphQLInputType | null;
 export declare function makeGraphQLSchema(options: GraphqlPluginOptions): GraphQLSchema;

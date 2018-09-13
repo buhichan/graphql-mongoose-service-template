@@ -11,8 +11,8 @@ import { makeCustomTypes } from "./make-custom-types";
 export type TypeMapperContext = {
     getResolver:(metaName:string, path: string[])=>GraphQLFieldConfig<void,void>['resolve'],
     getModel:(metaName:string)=>Model<any> | null
-    outputObjectTypePool:{[name:string]:GraphQLOutputType}
-    inputObjectTypePool:{[name:string]:GraphQLInputType}
+    outputObjectTypePool:Map<IMeta,GraphQLOutputType>
+    inputObjectTypePool:Map<IMeta,GraphQLInputType>
     enumTypePoll:{[name:string]:GraphQLEnumType}
 }
 
@@ -31,7 +31,7 @@ function mapMetaToField(fieldMeta:IMeta&{resolve?:(args:any,context:any)=>any},c
     if(!fieldMeta.type)
         return null
     if(fieldMeta.type === 'ref' && fieldMeta.ref){
-        field.resolve = context.getResolver(fieldMeta.ref,path.slice(1).concat(fieldMeta.name))
+        field.resolve = context.getResolver(fieldMeta.ref,[fieldMeta.name])
     }
     else if(fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref){
         field.resolve = context.getResolver(fieldMeta.item.ref,path.slice(1).concat(fieldMeta.name))
@@ -61,8 +61,8 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
         case field.type==="any": return GraphQLAny
         case field.type==="date": return GraphQLString
         case field.type==="number": return GraphQLInt
-        case field.type==="ref" && field.ref in context.outputObjectTypePool:{
-            return context.outputObjectTypePool[field.ref]
+        case field.type==="ref" && Array.from(context.outputObjectTypePool.keys()).some(x=>x.name === field.ref):{
+            return Array.from(context.outputObjectTypePool.entries()).find(([meta,type])=>meta.name === field.ref)[1]
         }
         case field.type==="boolean": return GraphQLBoolean
         case field.type==="array": {
@@ -75,8 +75,8 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
         }
         case field.type==="object" && field.fields instanceof Array && field.fields.length > 0: {
             const ObjectTypeUniqueName = path.concat(field.name).join("__")
-            if(!context.outputObjectTypePool[ObjectTypeUniqueName])
-                context.outputObjectTypePool[ObjectTypeUniqueName] = new GraphQLObjectType({
+            if(!context.outputObjectTypePool.has(field))
+                context.outputObjectTypePool.set(field,new GraphQLObjectType({
                     name:ObjectTypeUniqueName,
                     description:field.label,
                     fields:()=>field.fields.reduce((fields,childMeta)=>{
@@ -85,15 +85,15 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
                             fields[childMeta.name]=child
                         return fields
                     },{} as GraphQLFieldConfigMap<void,void>)
-                })
-            return context.outputObjectTypePool[ObjectTypeUniqueName]
+                }))
+            return context.outputObjectTypePool.get(field)
         }
         default: 
             return GraphQLString //includes string and ref
     }
 }
 
-export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,operationType:"Any"|"Read"|"Write"):GraphQLInputType|null{
+export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,path:string[],operationType:"Any"|"Read"|"Write"):GraphQLInputType|null{
     if(!meta)
         return null
     if(meta.readonly && operationType === 'Write')
@@ -103,12 +103,12 @@ export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,operatio
     if(meta.type === "ref")
         return GraphQLString
     if(meta.type==='object'){
-        const inputObjectTypeUniqueName = operationType + capitalize(meta.name)
-        if(!context.inputObjectTypePool[inputObjectTypeUniqueName])
-            context.inputObjectTypePool[inputObjectTypeUniqueName] = new GraphQLInputObjectType({
+        const inputObjectTypeUniqueName = operationType + path.join("__") + capitalize(meta.name)
+        if(!context.inputObjectTypePool.has(meta))
+            context.inputObjectTypePool.set(meta,new GraphQLInputObjectType({
                 name:inputObjectTypeUniqueName,
                 fields:()=>meta.fields.reduce((inputFields,fieldMeta)=>{
-                    const converted = mapMetaToInputType(fieldMeta, context,operationType)
+                    const converted = mapMetaToInputType(fieldMeta, context, path.concat(meta.name) ,operationType)
                     if(converted)
                         inputFields[fieldMeta.name] = {
                             type:converted,
@@ -116,11 +116,11 @@ export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,operatio
                         }
                     return inputFields
                 },{})
-            })
-        return context.inputObjectTypePool[inputObjectTypeUniqueName]
+            }))
+        return context.inputObjectTypePool.get(meta)
     }
     else if(meta.type==='array'){
-        const item = mapMetaToInputType(meta.item,context,operationType)
+        const item = mapMetaToInputType(meta.item,context, path,operationType)
         if(!item)
             return null
         return new GraphQLList(item)
@@ -203,8 +203,17 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
     })
     const getModel = makeModelGetter(connection)
     const getResolver:TypeMapperContext['getResolver'] = (refName,path)=>{
-        return async (source)=>{
-            const id = deepGet(source,path); // path[0] is modelName, which is useless.
+        return async (source:any,_,__,info)=>{
+            while(source.parent){
+                source = source.parent()
+            }
+            const path = []
+            let pathP = info.path
+            while(pathP){
+                path.unshift(pathP.key)
+                pathP = pathP.prev
+            }
+            const id = deepGet(source,path.slice(2)); // path[0] is modelName, path[1] is index
             if(!id)
                 return null
             const model = await getModel(refName)
@@ -213,19 +222,19 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             if(id instanceof Array)
                 return model.find({
                     _id:{
-                        $in:id
+                        $in:String(id)
                     }
                 })
             else
-                return model.findById(id)
+                return model.findById(String(id))
         }
     }
     const context:TypeMapperContext = {
         getModel,
         getResolver,
         enumTypePoll:{},
-        inputObjectTypePool:{},
-        outputObjectTypePool:{}
+        inputObjectTypePool:new Map(),
+        outputObjectTypePool:new Map()
     }
     const internalFields:IMeta[] = [
         {
@@ -261,10 +270,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
 
     const IDType = new GraphQLNonNull(GraphQLID)
 
-    const metaTypeQueries = rootTypes.reduce((query,type)=>{
-        const meta = metas.find(x=>x.name === type.name)
+    const metaTypeQueries = rootTypes.reduce((query,type,i)=>{
+        const meta = metas[i]
         const resolve = async (source,args,context,info)=>{
-                const model = await getModel(type.name)
+                const model = await getModel(meta.name)
                 if(!model)
                     return []
                 else {
@@ -299,9 +308,9 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             name:"Mutation",
             fields:{
                 ...metas.reduce((mutations,meta)=>{
-                    const modelType = context.outputObjectTypePool[meta.name]
-                    const modelReadType = new GraphQLNonNull(mapMetaToInputType(meta,context,'Read'))
-                    const modelWriteType = new GraphQLNonNull(mapMetaToInputType(meta, context, 'Write'))
+                    const modelType = context.outputObjectTypePool.get(meta)
+                    const modelReadType = new GraphQLNonNull(mapMetaToInputType(meta,context, [],'Read'))
+                    const modelWriteType = new GraphQLNonNull(mapMetaToInputType(meta, context, [], 'Write'))
                     const addModelMutationName = 'add'+capitalize(meta.name)
                     mutations[addModelMutationName] = {
                         type:modelType,

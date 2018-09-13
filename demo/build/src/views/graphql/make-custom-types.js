@@ -49,7 +49,7 @@ function makeCustomTypes(typeMetas, context, onMutation) {
                 var argMeta = mutationMeta.args[argName];
                 if (argMeta.meta)
                     args[argName] = {
-                        type: make_schema_1.mapMetaToInputType(argMeta.meta, context, 'Any'),
+                        type: make_schema_1.mapMetaToInputType(argMeta.meta, context, [], 'Any'),
                         defaultValue: mutationMeta.args[argName].defaultValue
                     };
                 return args;

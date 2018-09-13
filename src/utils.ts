@@ -27,7 +27,7 @@ export function deepGet(obj:any, path:string[]){
     let i = 0
     while(i < path.length){
         const seg = path[i]
-        if(seg && p)
+        if(seg != undefined && p != undefined)
             p = p[seg]
         else
             return null

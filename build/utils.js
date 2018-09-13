@@ -23,7 +23,7 @@ function deepGet(obj, path) {
     var i = 0;
     while (i < path.length) {
         var seg = path[i];
-        if (seg && p)
+        if (seg != undefined && p != undefined)
             p = p[seg];
         else
             return null;

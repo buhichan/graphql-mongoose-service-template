@@ -127,6 +127,7 @@ function bootstrap() {
                                 }
                             ]
                         },
+                        example_1.Template
                     ]);
                     console.log("Metas loaded.");
                     return [4 /*yield*/, Promise.all(allMetas.map(function (meta) { return makeModelFromMeta({ connection: connection, meta: meta }); }))];
@@ -148,7 +149,7 @@ function bootstrap() {
                         }
                     });
                     graphQLPlugin = makeGraphQLPlugin({
-                        metas: allMetas.concat(metaOfMeta, example_1.Template),
+                        metas: allMetas.concat(metaOfMeta),
                         queries: {
                             locations: {
                                 returns: {

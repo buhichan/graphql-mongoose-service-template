@@ -18,7 +18,7 @@ export function makeCustomTypes<Context>(
                 const argMeta = mutationMeta.args[argName]
                 if(argMeta.meta)
                     args[argName] = {
-                        type: mapMetaToInputType(argMeta.meta, context, 'Any'),
+                        type: mapMetaToInputType(argMeta.meta, context, [], 'Any'),
                         defaultValue: mutationMeta.args[argName].defaultValue
                     }
                 return args

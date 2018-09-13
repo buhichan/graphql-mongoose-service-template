@@ -54,6 +54,7 @@ export async function bootstrap(){
                 }
             ]
         },
+        Template
     ])
     console.log(`Metas loaded.`)
 
@@ -86,7 +87,7 @@ export async function bootstrap(){
         })
     }
     const graphQLPlugin = makeGraphQLPlugin({
-        metas:allMetas.concat(metaOfMeta,Template),
+        metas:allMetas.concat(metaOfMeta),
         queries:{
             locations:{
                 returns:{
