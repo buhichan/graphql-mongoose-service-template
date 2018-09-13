@@ -5,8 +5,8 @@ import { IMeta } from "../../models/meta";
 export declare type TypeMapperContext = {
     getResolver: (metaName: string, path: string[]) => GraphQLFieldConfig<void, void>['resolve'];
     getModel: (metaName: string) => Model<any> | null;
-    outputObjectTypePool: Map<IMeta, GraphQLOutputType>;
-    inputObjectTypePool: Map<IMeta, GraphQLInputType>;
+    outputTypeHashMap: Map<string, GraphQLOutputType>;
+    inputTypeHashMap: Map<string, GraphQLInputType>;
     enumTypePoll: {
         [name: string]: GraphQLEnumType;
     };

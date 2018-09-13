@@ -11,8 +11,8 @@ import { makeCustomTypes } from "./make-custom-types";
 export type TypeMapperContext = {
     getResolver:(metaName:string, path: string[])=>GraphQLFieldConfig<void,void>['resolve'],
     getModel:(metaName:string)=>Model<any> | null
-    outputObjectTypePool:Map<IMeta,GraphQLOutputType>
-    inputObjectTypePool:Map<IMeta,GraphQLInputType>
+    outputTypeHashMap:Map<string,GraphQLOutputType>
+    inputTypeHashMap:Map<string,GraphQLInputType>
     enumTypePoll:{[name:string]:GraphQLEnumType}
 }
 
@@ -61,8 +61,8 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
         case field.type==="any": return GraphQLAny
         case field.type==="date": return GraphQLString
         case field.type==="number": return GraphQLInt
-        case field.type==="ref" && Array.from(context.outputObjectTypePool.keys()).some(x=>x.name === field.ref):{
-            return Array.from(context.outputObjectTypePool.entries()).find(([meta,type])=>meta.name === field.ref)[1]
+        case field.type==="ref" && field.ref in context.outputTypeHashMap:{
+            return context.outputTypeHashMap[field.ref]
         }
         case field.type==="boolean": return GraphQLBoolean
         case field.type==="array": {
@@ -75,8 +75,8 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
         }
         case field.type==="object" && field.fields instanceof Array && field.fields.length > 0: {
             const ObjectTypeUniqueName = path.concat(field.name).join("__")
-            if(!context.outputObjectTypePool.has(field))
-                context.outputObjectTypePool.set(field,new GraphQLObjectType({
+            if(!context.outputTypeHashMap.has(ObjectTypeUniqueName))
+                context.outputTypeHashMap.set(ObjectTypeUniqueName,new GraphQLObjectType({
                     name:ObjectTypeUniqueName,
                     description:field.label,
                     fields:()=>field.fields.reduce((fields,childMeta)=>{
@@ -86,7 +86,7 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
                         return fields
                     },{} as GraphQLFieldConfigMap<void,void>)
                 }))
-            return context.outputObjectTypePool.get(field)
+            return context.outputTypeHashMap.get(ObjectTypeUniqueName)
         }
         default: 
             return GraphQLString //includes string and ref
@@ -104,8 +104,8 @@ export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,path:str
         return GraphQLString
     if(meta.type==='object'){
         const inputObjectTypeUniqueName = operationType + path.join("__") + capitalize(meta.name)
-        if(!context.inputObjectTypePool.has(meta))
-            context.inputObjectTypePool.set(meta,new GraphQLInputObjectType({
+        if(!context.inputTypeHashMap.has(inputObjectTypeUniqueName))
+            context.inputTypeHashMap.set(inputObjectTypeUniqueName,new GraphQLInputObjectType({
                 name:inputObjectTypeUniqueName,
                 fields:()=>meta.fields.reduce((inputFields,fieldMeta)=>{
                     const converted = mapMetaToInputType(fieldMeta, context, path.concat(meta.name) ,operationType)
@@ -117,7 +117,7 @@ export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,path:str
                     return inputFields
                 },{})
             }))
-        return context.inputObjectTypePool.get(meta)
+        return context.inputTypeHashMap.get(inputObjectTypeUniqueName)
     }
     else if(meta.type==='array'){
         const item = mapMetaToInputType(meta.item,context, path,operationType)
@@ -226,15 +226,17 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                     }
                 })
             else
-                return model.findById(String(id))
+                return model.findById(String(id)).then(res=>{
+                    return res
+                })
         }
     }
     const context:TypeMapperContext = {
         getModel,
         getResolver,
         enumTypePoll:{},
-        inputObjectTypePool:new Map(),
-        outputObjectTypePool:new Map()
+        inputTypeHashMap:new Map(),
+        outputTypeHashMap:new Map()
     }
     const internalFields:IMeta[] = [
         {
@@ -308,7 +310,9 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             name:"Mutation",
             fields:{
                 ...metas.reduce((mutations,meta)=>{
-                    const modelType = context.outputObjectTypePool.get(meta)
+                    const modelType = context.outputTypeHashMap.get(meta.name)
+                    if(!modelType)
+                        throw new Error("Cannot find modelType:"+meta.name)
                     const modelReadType = new GraphQLNonNull(mapMetaToInputType(meta,context, [],'Read'))
                     const modelWriteType = new GraphQLNonNull(mapMetaToInputType(meta, context, [], 'Write'))
                     const addModelMutationName = 'add'+capitalize(meta.name)

@@ -117,11 +117,8 @@ function mapMetaToOutputType(field, context, path) {
         case field.type === "any": return any_1.GraphQLAny;
         case field.type === "date": return graphql_1.GraphQLString;
         case field.type === "number": return graphql_1.GraphQLInt;
-        case field.type === "ref" && Array.from(context.outputObjectTypePool.keys()).some(function (x) { return x.name === field.ref; }): {
-            return Array.from(context.outputObjectTypePool.entries()).find(function (_a) {
-                var _b = __read(_a, 2), meta = _b[0], type = _b[1];
-                return meta.name === field.ref;
-            })[1];
+        case field.type === "ref" && field.ref in context.outputTypeHashMap: {
+            return context.outputTypeHashMap[field.ref];
         }
         case field.type === "boolean": return graphql_1.GraphQLBoolean;
         case field.type === "array": {
@@ -134,8 +131,8 @@ function mapMetaToOutputType(field, context, path) {
         }
         case field.type === "object" && field.fields instanceof Array && field.fields.length > 0: {
             var ObjectTypeUniqueName = path.concat(field.name).join("__");
-            if (!context.outputObjectTypePool.has(field))
-                context.outputObjectTypePool.set(field, new graphql_1.GraphQLObjectType({
+            if (!context.outputTypeHashMap.has(ObjectTypeUniqueName))
+                context.outputTypeHashMap.set(ObjectTypeUniqueName, new graphql_1.GraphQLObjectType({
                     name: ObjectTypeUniqueName,
                     description: field.label,
                     fields: function () { return field.fields.reduce(function (fields, childMeta) {
@@ -145,7 +142,7 @@ function mapMetaToOutputType(field, context, path) {
                         return fields;
                     }, {}); }
                 }));
-            return context.outputObjectTypePool.get(field);
+            return context.outputTypeHashMap.get(ObjectTypeUniqueName);
         }
         default:
             return graphql_1.GraphQLString; //includes string and ref
@@ -163,8 +160,8 @@ function mapMetaToInputType(meta, context, path, operationType) {
         return graphql_1.GraphQLString;
     if (meta.type === 'object') {
         var inputObjectTypeUniqueName = operationType + path.join("__") + capitalize(meta.name);
-        if (!context.inputObjectTypePool.has(meta))
-            context.inputObjectTypePool.set(meta, new graphql_1.GraphQLInputObjectType({
+        if (!context.inputTypeHashMap.has(inputObjectTypeUniqueName))
+            context.inputTypeHashMap.set(inputObjectTypeUniqueName, new graphql_1.GraphQLInputObjectType({
                 name: inputObjectTypeUniqueName,
                 fields: function () { return meta.fields.reduce(function (inputFields, fieldMeta) {
                     var converted = mapMetaToInputType(fieldMeta, context, path.concat(meta.name), operationType);
@@ -176,7 +173,7 @@ function mapMetaToInputType(meta, context, path, operationType) {
                     return inputFields;
                 }, {}); }
             }));
-        return context.inputObjectTypePool.get(meta);
+        return context.inputTypeHashMap.get(inputObjectTypeUniqueName);
     }
     else if (meta.type === 'array') {
         var item = mapMetaToInputType(meta.item, context, path, operationType);
@@ -280,7 +277,9 @@ function makeGraphQLSchema(options) {
                                     }
                                 })];
                         else
-                            return [2 /*return*/, model.findById(String(id))];
+                            return [2 /*return*/, model.findById(String(id)).then(function (res) {
+                                    return res;
+                                })];
                         return [2 /*return*/];
                 }
             });
@@ -290,8 +289,8 @@ function makeGraphQLSchema(options) {
         getModel: getModel,
         getResolver: getResolver,
         enumTypePoll: {},
-        inputObjectTypePool: new Map(),
-        outputObjectTypePool: new Map()
+        inputTypeHashMap: new Map(),
+        outputTypeHashMap: new Map()
     };
     var internalFields = [
         {
@@ -360,7 +359,9 @@ function makeGraphQLSchema(options) {
         mutation: new graphql_1.GraphQLObjectType({
             name: "Mutation",
             fields: __assign({}, metas.reduce(function (mutations, meta) {
-                var modelType = context.outputObjectTypePool.get(meta);
+                var modelType = context.outputTypeHashMap.get(meta.name);
+                if (!modelType)
+                    throw new Error("Cannot find modelType:" + meta.name);
                 var modelReadType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, [], 'Read'));
                 var modelWriteType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, [], 'Write'));
                 var addModelMutationName = 'add' + capitalize(meta.name);
