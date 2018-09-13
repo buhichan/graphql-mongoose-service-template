@@ -1,6 +1,6 @@
 {
   "name": "graphql-mongoose-connector",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "graphql-mongoose-connector",
   "main": "build/index.js",
   "repository": {
