@@ -61,8 +61,8 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
         case field.type==="any": return GraphQLAny
         case field.type==="date": return GraphQLString
         case field.type==="number": return GraphQLInt
-        case field.type==="ref" && field.ref in context.outputTypeHashMap:{
-            return context.outputTypeHashMap[field.ref]
+        case field.type==="ref" && context.outputTypeHashMap.has(field.ref): {
+            return context.outputTypeHashMap.get(field.ref)
         }
         case field.type==="boolean": return GraphQLBoolean
         case field.type==="array": {

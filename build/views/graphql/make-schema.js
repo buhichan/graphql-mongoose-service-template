@@ -117,8 +117,8 @@ function mapMetaToOutputType(field, context, path) {
         case field.type === "any": return any_1.GraphQLAny;
         case field.type === "date": return graphql_1.GraphQLString;
         case field.type === "number": return graphql_1.GraphQLInt;
-        case field.type === "ref" && field.ref in context.outputTypeHashMap: {
-            return context.outputTypeHashMap[field.ref];
+        case field.type === "ref" && context.outputTypeHashMap.has(field.ref): {
+            return context.outputTypeHashMap.get(field.ref);
         }
         case field.type === "boolean": return graphql_1.GraphQLBoolean;
         case field.type === "array": {
