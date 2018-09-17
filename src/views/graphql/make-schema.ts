@@ -6,11 +6,12 @@ import { IMeta, metaOfMeta } from "../../models/meta";
 import { GraphQLAny } from "./type/any";
 import { validateData } from "../../models/validate";
 import { makeCustomTypes } from "./make-custom-types";
+import { makeResolver } from "./make-resolver";
 
 
 export type TypeMapperContext = {
-    getResolver:(metaName:string, path: string[])=>GraphQLFieldConfig<void,void>['resolve'],
     getModel:(metaName:string)=>Model<any> | null
+    metaMap:Map<string,IMeta>,
     outputTypeHashMap:Map<string,GraphQLOutputType>
     inputTypeHashMap:Map<string,GraphQLInputType>
     enumTypePoll:{[name:string]:GraphQLEnumType}
@@ -31,10 +32,10 @@ function mapMetaToField(fieldMeta:IMeta&{resolve?:(args:any,context:any)=>any},c
     if(!fieldMeta.type)
         return null
     if(fieldMeta.type === 'ref' && fieldMeta.ref){
-        field.resolve = context.getResolver(fieldMeta.ref,[fieldMeta.name])
+        field.resolve = makeResolver(fieldMeta, context)
     }
     else if(fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref){
-        field.resolve = context.getResolver(fieldMeta.item.ref,path.slice(1).concat(fieldMeta.name))
+        field.resolve = makeResolver(fieldMeta.item, context)
     }
     else if(fieldMeta.resolve)
         field.resolve = (_,args,context)=>fieldMeta.resolve(args,context)
@@ -202,38 +203,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             throw new Error("Invalid meta: "+meta.name)
     })
     const getModel = makeModelGetter(connection)
-    const getResolver:TypeMapperContext['getResolver'] = (refName,path)=>{
-        return async (source:any,_,__,info)=>{
-            while(source.parent){
-                source = source.parent()
-            }
-            const path = []
-            let pathP = info.path
-            while(pathP){
-                path.unshift(pathP.key)
-                pathP = pathP.prev
-            }
-            const id = deepGet(source,path.slice(2)); // path[0] is modelName, path[1] is index
-            if(!id)
-                return null
-            const model = await getModel(refName)
-            if(!model)
-                return null
-            if(id instanceof Array)
-                return model.find({
-                    _id:{
-                        $in:String(id)
-                    }
-                })
-            else
-                return model.findById(String(id)).then(res=>{
-                    return res
-                })
-        }
-    }
+    
     const context:TypeMapperContext = {
         getModel,
-        getResolver,
+        metaMap:new Map(),
         enumTypePoll:{},
         inputTypeHashMap:new Map(),
         outputTypeHashMap:new Map()
@@ -258,6 +231,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         }
     ]
     metas = metas.filter(x=>x && x.type==="object").map(modelMeta=>{
+        context.metaMap.set(modelMeta.name, modelMeta)
         return {
             ...modelMeta,
             fields:[

@@ -115,19 +115,9 @@ function bootstrap() {
                         // makeModelFromMeta(meta)
                         return meta;
                     }).concat([
-                        {
-                            name: "test",
-                            type: "object",
-                            label: "test",
-                            fields: [
-                                {
-                                    name: "any",
-                                    type: "any",
-                                    label: "any"
-                                }
-                            ]
-                        },
-                        example_1.Template
+                        example_1.Attr,
+                        example_1.Template,
+                        example_1.Enums
                     ]);
                     console.log("Metas loaded.");
                     return [4 /*yield*/, Promise.all(allMetas.map(function (meta) { return makeModelFromMeta({ connection: connection, meta: meta }); }))];

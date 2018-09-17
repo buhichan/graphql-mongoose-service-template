@@ -5,7 +5,7 @@ import * as joi from "joi"
 import { Mongoose } from "mongoose";
 import graphiql from "./graphiql";
 import { IMeta } from "../src";
-import { Template } from "./example";
+import { Template,Attr,Enums } from "./example";
 
 
 export async function bootstrap(){
@@ -42,19 +42,9 @@ export async function bootstrap(){
         // makeModelFromMeta(meta)
         return meta as IMeta
     }).concat([
-        {
-            name:"test",
-            type:"object",
-            label:"test",
-            fields:[
-                {
-                    name:"any",
-                    type:"any",
-                    label:"any"
-                }
-            ]
-        },
-        Template
+        Attr,
+        Template,
+        Enums
     ])
     console.log(`Metas loaded.`)
 

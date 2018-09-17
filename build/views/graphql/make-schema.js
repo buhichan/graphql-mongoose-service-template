@@ -72,6 +72,7 @@ var meta_1 = require("../../models/meta");
 var any_1 = require("./type/any");
 var validate_1 = require("../../models/validate");
 var make_custom_types_1 = require("./make-custom-types");
+var make_resolver_1 = require("./make-resolver");
 function capitalize(str) {
     if (!str)
         return str;
@@ -85,10 +86,10 @@ function mapMetaToField(fieldMeta, context, path) {
     if (!fieldMeta.type)
         return null;
     if (fieldMeta.type === 'ref' && fieldMeta.ref) {
-        field.resolve = context.getResolver(fieldMeta.ref, [fieldMeta.name]);
+        field.resolve = make_resolver_1.makeResolver(fieldMeta, context);
     }
     else if (fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref) {
-        field.resolve = context.getResolver(fieldMeta.item.ref, path.slice(1).concat(fieldMeta.name));
+        field.resolve = make_resolver_1.makeResolver(fieldMeta.item, context);
     }
     else if (fieldMeta.resolve)
         field.resolve = function (_, args, context) { return fieldMeta.resolve(args, context); };
@@ -247,47 +248,9 @@ function makeGraphQLSchema(options) {
             throw new Error("Invalid meta: " + meta.name);
     });
     var getModel = utils_1.makeModelGetter(connection);
-    var getResolver = function (refName, path) {
-        return function (source, _, __, info) { return __awaiter(_this, void 0, void 0, function () {
-            var path, pathP, id, model;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0:
-                        while (source.parent) {
-                            source = source.parent();
-                        }
-                        path = [];
-                        pathP = info.path;
-                        while (pathP) {
-                            path.unshift(pathP.key);
-                            pathP = pathP.prev;
-                        }
-                        id = utils_1.deepGet(source, path.slice(2));
-                        if (!id)
-                            return [2 /*return*/, null];
-                        return [4 /*yield*/, getModel(refName)];
-                    case 1:
-                        model = _a.sent();
-                        if (!model)
-                            return [2 /*return*/, null];
-                        if (id instanceof Array)
-                            return [2 /*return*/, model.find({
-                                    _id: {
-                                        $in: String(id)
-                                    }
-                                })];
-                        else
-                            return [2 /*return*/, model.findById(String(id)).then(function (res) {
-                                    return res;
-                                })];
-                        return [2 /*return*/];
-                }
-            });
-        }); };
-    };
     var context = {
         getModel: getModel,
-        getResolver: getResolver,
+        metaMap: new Map(),
         enumTypePoll: {},
         inputTypeHashMap: new Map(),
         outputTypeHashMap: new Map()
@@ -312,6 +275,7 @@ function makeGraphQLSchema(options) {
         }
     ];
     metas = metas.filter(function (x) { return x && x.type === "object"; }).map(function (modelMeta) {
+        context.metaMap.set(modelMeta.name, modelMeta);
         return __assign({}, modelMeta, { fields: __spread(modelMeta.fields, internalFields.filter(function (x) { return !modelMeta.fields.some(function (y) { return y.name === x.name; }); })) });
     });
     var rootTypes = metas.map(function (modelMeta) {

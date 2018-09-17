@@ -1,5 +1,71 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Attr = {
+    "name": "attr",
+    "type": "object",
+    "label": "属性",
+    "fields": [
+        {
+            "name": "name",
+            "label": "属性名称",
+            "type": "string"
+        },
+        {
+            "name": "label",
+            "label": "显示名称",
+            "type": "string"
+        },
+        {
+            "name": "type",
+            "label": "数据类型",
+            "type": "string"
+        },
+        {
+            "name": "lambda_name",
+            "label": "lambda",
+            "type": "string"
+        },
+        {
+            "name": "is_common",
+            "label": "是否公用",
+            "type": "boolean"
+        },
+        {
+            "name": "is_required",
+            "label": "是否必填",
+            "type": "boolean"
+        }
+    ]
+};
+exports.Enums = {
+    name: "enums",
+    label: "枚举表",
+    type: "object",
+    fields: [
+        {
+            name: "attr_id",
+            label: "属性id",
+            type: "ref",
+            ref: "attr"
+        },
+        {
+            name: "value",
+            label: "数据值",
+            type: "string"
+        },
+        // {
+        //     name: "level",
+        //     label: "数据层级",
+        //     type: "number"
+        // },
+        {
+            name: "parent_id",
+            label: "父id",
+            type: "ref",
+            ref: "enums"
+        }
+    ]
+};
 exports.Template = {
     "name": "template",
     "type": "object",
@@ -55,7 +121,7 @@ exports.Template = {
                 label: "字段对象",
                 fields: [
                     {
-                        ref: "Meta",
+                        ref: "attr",
                         type: "ref",
                         name: "attr_id",
                         label: "属性id"
