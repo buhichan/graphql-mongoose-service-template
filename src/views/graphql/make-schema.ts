@@ -187,6 +187,9 @@ function convertSearchToFindOptions(search:any){
             findOptions[newName] = convertSearchToFindOptions(search[name])
             return findOptions
         },{})
+    if(search != undefined && search instanceof Array){
+        return search.map(convertSearchToFindOptions)
+    }
     return search
 }
 
