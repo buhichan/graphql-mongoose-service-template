@@ -143,6 +143,21 @@ const sortEnumType = new GraphQLEnumType({
     }
 })
 
+//为什么sort要用array? 因为graphql的处理忽略了object内key的顺序
+
+const sortArgType = new GraphQLList(new GraphQLInputObjectType({
+    name:"SortField",
+    fields:{
+        field:{
+            type:GraphQLString
+        },
+        direction:{
+            type:sortEnumType,
+            defaultValue:1
+        }
+    }
+}))
+
 function makeQueryArgs(meta:IMeta,context:TypeMapperContext){
     const indexableFields = meta.fields.filter(x=>{
         return ['number','string','date'].includes(x.type) && x.name !== "_id"
@@ -164,15 +179,7 @@ function makeQueryArgs(meta:IMeta,context:TypeMapperContext){
 
     if(indexableFields.length){
         queryArgs.sort = {
-            type:new GraphQLInputObjectType({
-                name:"_"+meta.name+"_sort",
-                fields:indexableFields.reduce((fields,fieldMeta)=>{
-                    fields[fieldMeta.name] = {
-                        type:sortEnumType
-                    }
-                    return fields
-                },{})
-            })
+            type: sortArgType
         }
     }
     return queryArgs
@@ -258,7 +265,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 else {
                     const findCondition = convertSearchToFindOptions(args.search)
                     const query = model.find(findCondition)
-                        .sort(args.sort)
+                        .sort(args.sort.reduce((obj,f)=>{
+                            obj[f.field]=f.direction
+                            return obj
+                        },{}))
                         .skip(args.skip)
                     if(args.limit)
                         return query.limit(args.limit)

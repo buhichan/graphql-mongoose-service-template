@@ -1,5 +1,120 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.Fault = {
+    name: "faults",
+    label: "故障表",
+    type: "object",
+    fields: [
+        {
+            name: "alarm_id",
+            label: "告警ID",
+            type: "string"
+        },
+        {
+            name: "template_id",
+            label: "模版ID",
+            type: "ref",
+            ref: "template"
+        },
+        {
+            name: "title",
+            label: "告警标题",
+            type: "string"
+        },
+        {
+            name: "happen_time",
+            label: "发生时间",
+            type: "string"
+        },
+        {
+            name: "recover_time",
+            label: "恢复时间",
+            type: "string"
+        },
+        {
+            name: "handle_person",
+            label: "当前处理人",
+            type: "string"
+        },
+        {
+            name: "alarm_reg",
+            label: "告警接入",
+            type: "any"
+        },
+        {
+            name: "status",
+            label: "状态",
+            type: "string"
+        },
+        {
+            name: "unom_status",
+            label: "告警状态",
+            type: "string"
+        },
+        {
+            name: "info_type",
+            label: "类别",
+            type: "string"
+        },
+        {
+            name: "region",
+            label: "地域",
+            type: "string"
+        },
+        {
+            name: "show_level",
+            label: "级别",
+            type: "string"
+        },
+        {
+            name: "usage",
+            label: "一级业务",
+            type: "string"
+        },
+        {
+            name: "sec_usage",
+            label: "二级业务",
+            type: "string"
+        },
+        {
+            name: "alarm_duty",
+            label: "值班人",
+            type: "any"
+        },
+        {
+            name: "logs",
+            label: "操作记录列表",
+            type: "array",
+            item: {
+                name: "log",
+                type: "object",
+                label: "操作日志",
+                fields: [
+                    {
+                        name: "time",
+                        type: "string",
+                        label: "操作时间",
+                    },
+                    {
+                        name: "user",
+                        type: "string",
+                        label: "操作用户",
+                    },
+                    {
+                        name: "action",
+                        type: "string",
+                        label: "操作",
+                    },
+                ]
+            }
+        },
+        {
+            name: "Extend",
+            label: "扩展字段",
+            type: "any"
+        }
+    ]
+};
 exports.Attr = {
     "name": "attr",
     "type": "object",

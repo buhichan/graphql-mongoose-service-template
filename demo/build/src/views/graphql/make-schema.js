@@ -196,6 +196,19 @@ var sortEnumType = new graphql_1.GraphQLEnumType({
         desc: { value: -1, description: "降序" }
     }
 });
+//为什么sort要用array? 因为graphql的处理忽略了object内key的顺序
+var sortArgType = new graphql_1.GraphQLList(new graphql_1.GraphQLInputObjectType({
+    name: "SortField",
+    fields: {
+        field: {
+            type: graphql_1.GraphQLString
+        },
+        direction: {
+            type: sortEnumType,
+            defaultValue: 1
+        }
+    }
+}));
 function makeQueryArgs(meta, context) {
     var indexableFields = meta.fields.filter(function (x) {
         return ['number', 'string', 'date'].includes(x.type) && x.name !== "_id";
@@ -216,15 +229,7 @@ function makeQueryArgs(meta, context) {
     };
     if (indexableFields.length) {
         queryArgs.sort = {
-            type: new graphql_1.GraphQLInputObjectType({
-                name: "_" + meta.name + "_sort",
-                fields: indexableFields.reduce(function (fields, fieldMeta) {
-                    fields[fieldMeta.name] = {
-                        type: sortEnumType
-                    };
-                    return fields;
-                }, {})
-            })
+            type: sortArgType
         };
     }
     return queryArgs;
@@ -238,6 +243,9 @@ function convertSearchToFindOptions(search) {
             findOptions[newName] = convertSearchToFindOptions(search[name]);
             return findOptions;
         }, {});
+    if (search != undefined && search instanceof Array) {
+        return search.map(convertSearchToFindOptions);
+    }
     return search;
 }
 function makeGraphQLSchema(options) {
@@ -296,7 +304,10 @@ function makeGraphQLSchema(options) {
                         else {
                             findCondition = convertSearchToFindOptions(args.search);
                             query_1 = model.find(findCondition)
-                                .sort(args.sort)
+                                .sort(args.sort.reduce(function (obj, f) {
+                                obj[f.field] = f.direction;
+                                return obj;
+                            }, {}))
                                 .skip(args.skip);
                             if (args.limit)
                                 return [2 /*return*/, query_1.limit(args.limit)];

@@ -115,6 +115,7 @@ function bootstrap() {
                         // makeModelFromMeta(meta)
                         return meta;
                     }).concat([
+                        example_1.Fault,
                         example_1.Attr,
                         example_1.Template,
                         example_1.Enums
