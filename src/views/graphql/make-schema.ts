@@ -265,10 +265,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 else {
                     const findCondition = convertSearchToFindOptions(args.search)
                     const query = model.find(findCondition)
-                        .sort(args.sort.reduce((obj,f)=>{
+                        .sort(args.sort ? args.sort.reduce((obj,f)=>{
                             obj[f.field]=f.direction
                             return obj
-                        },{}))
+                        },{}) : undefined)
                         .skip(args.skip)
                     if(args.limit)
                         return query.limit(args.limit)

@@ -304,10 +304,10 @@ function makeGraphQLSchema(options) {
                         else {
                             findCondition = convertSearchToFindOptions(args.search);
                             query_1 = model.find(findCondition)
-                                .sort(args.sort.reduce(function (obj, f) {
+                                .sort(args.sort ? args.sort.reduce(function (obj, f) {
                                 obj[f.field] = f.direction;
                                 return obj;
-                            }, {}))
+                            }, {}) : undefined)
                                 .skip(args.skip);
                             if (args.limit)
                                 return [2 /*return*/, query_1.limit(args.limit)];
