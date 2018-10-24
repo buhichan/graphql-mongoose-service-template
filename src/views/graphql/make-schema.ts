@@ -185,17 +185,17 @@ function makeQueryArgs(meta:IMeta,context:TypeMapperContext){
     return queryArgs
 }
 
-function convertSearchToFindOptions(search:any){
+function condition2FindOptions(search:any){
     if(search != undefined && !(search instanceof Array) && typeof search === 'object')
         return Object.keys(search).reduce((findOptions,name)=>{
             let newName = name
             if(name.startsWith("_") && name !== "_id")
                 newName = "$"+name.slice(1)
-            findOptions[newName] = convertSearchToFindOptions(search[name])
+            findOptions[newName] = condition2FindOptions(search[name])
             return findOptions
         },{})
     if(search != undefined && search instanceof Array){
-        return search.map(convertSearchToFindOptions)
+        return search.map(condition2FindOptions)
     }
     return search
 }
@@ -263,7 +263,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 if(!model)
                     return []
                 else {
-                    const findCondition = convertSearchToFindOptions(args.search)
+                    const findCondition = condition2FindOptions(args.search)
                     const query = model.find(findCondition)
                         .sort(args.sort ? args.sort.reduce((obj,f)=>{
                             obj[f.field]=f.direction
@@ -352,7 +352,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            const updateResult = await model.updateMany(args.condition,args.payload).exec()
+                            const updateResult = await model.updateMany( condition2FindOptions(args.condition) ,args.payload).exec()
                             const res = updateResult ? updateResult.n : 0
                             if(onMutation[updateModelMutationName])
                                 await onMutation[updateModelMutationName](args,res)

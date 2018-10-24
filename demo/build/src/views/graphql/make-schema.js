@@ -234,17 +234,17 @@ function makeQueryArgs(meta, context) {
     }
     return queryArgs;
 }
-function convertSearchToFindOptions(search) {
+function condition2FindOptions(search) {
     if (search != undefined && !(search instanceof Array) && typeof search === 'object')
         return Object.keys(search).reduce(function (findOptions, name) {
             var newName = name;
             if (name.startsWith("_") && name !== "_id")
                 newName = "$" + name.slice(1);
-            findOptions[newName] = convertSearchToFindOptions(search[name]);
+            findOptions[newName] = condition2FindOptions(search[name]);
             return findOptions;
         }, {});
     if (search != undefined && search instanceof Array) {
-        return search.map(convertSearchToFindOptions);
+        return search.map(condition2FindOptions);
     }
     return search;
 }
@@ -302,7 +302,7 @@ function makeGraphQLSchema(options) {
                         if (!model)
                             return [2 /*return*/, []];
                         else {
-                            findCondition = convertSearchToFindOptions(args.search);
+                            findCondition = condition2FindOptions(args.search);
                             query_1 = model.find(findCondition)
                                 .sort(args.sort ? args.sort.reduce(function (obj, f) {
                                 obj[f.field] = f.direction;
@@ -418,7 +418,7 @@ function makeGraphQLSchema(options) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [4 /*yield*/, model.updateMany(args.condition, args.payload).exec()];
+                                    return [4 /*yield*/, model.updateMany(condition2FindOptions(args.condition), args.payload).exec()];
                                 case 2:
                                     updateResult = _a.sent();
                                     res = updateResult ? updateResult.n : 0;
