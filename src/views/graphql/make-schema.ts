@@ -344,7 +344,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         type:GraphQLInt,
                         args:{
                             condition:{
-                                type:modelReadType
+                                type:GraphQLAny
                             },
                             payload:{
                                 type:modelWriteType

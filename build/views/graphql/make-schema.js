@@ -405,7 +405,7 @@ function makeGraphQLSchema(options) {
                     type: graphql_1.GraphQLInt,
                     args: {
                         condition: {
-                            type: modelReadType
+                            type: any_1.GraphQLAny
                         },
                         payload: {
                             type: modelWriteType
