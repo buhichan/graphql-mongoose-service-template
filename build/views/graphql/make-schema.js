@@ -292,36 +292,57 @@ function makeGraphQLSchema(options) {
     var IDType = new graphql_1.GraphQLNonNull(graphql_1.GraphQLID);
     var metaTypeQueries = rootTypes.reduce(function (query, type, i) {
         var meta = metas[i];
-        var resolve = function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
-            var model, findCondition, query_1;
-            return __generator(this, function (_a) {
-                switch (_a.label) {
-                    case 0: return [4 /*yield*/, getModel(meta.name)];
-                    case 1:
-                        model = _a.sent();
-                        if (!model)
-                            return [2 /*return*/, []];
-                        else {
-                            findCondition = condition2FindOptions(args.search);
-                            query_1 = model.find(findCondition)
-                                .sort(args.sort ? args.sort.reduce(function (obj, f) {
-                                obj[f.field] = f.direction;
-                                return obj;
-                            }, {}) : undefined)
-                                .skip(args.skip);
-                            if (args.limit)
-                                return [2 /*return*/, query_1.limit(args.limit)];
-                            return [2 /*return*/, query_1];
-                        }
-                        return [2 /*return*/];
-                }
-            });
-        }); };
+        query['count' + capitalize(type.name)] = {
+            type: graphql_1.GraphQLInt,
+            description: "Count " + meta.label,
+            args: makeQueryArgs(meta, context),
+            resolve: function (_, args) { return __awaiter(_this, void 0, void 0, function () {
+                var model, findCondition;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0: return [4 /*yield*/, getModel(meta.name)];
+                        case 1:
+                            model = _a.sent();
+                            if (!model)
+                                return [2 /*return*/, []];
+                            else {
+                                findCondition = condition2FindOptions(args.search);
+                                return [2 /*return*/, model.count(findCondition)];
+                            }
+                            return [2 /*return*/];
+                    }
+                });
+            }); }
+        };
         query[type.name] = {
             type: new graphql_1.GraphQLList(type),
             description: meta.label,
             args: makeQueryArgs(meta, context),
-            resolve: resolve
+            resolve: function (_, args) { return __awaiter(_this, void 0, void 0, function () {
+                var model, findCondition, query_1;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0: return [4 /*yield*/, getModel(meta.name)];
+                        case 1:
+                            model = _a.sent();
+                            if (!model)
+                                return [2 /*return*/, []];
+                            else {
+                                findCondition = condition2FindOptions(args.search);
+                                query_1 = model.find(findCondition)
+                                    .sort(args.sort ? args.sort.reduce(function (obj, f) {
+                                    obj[f.field] = f.direction;
+                                    return obj;
+                                }, {}) : undefined)
+                                    .skip(args.skip);
+                                if (args.limit)
+                                    return [2 /*return*/, query_1.limit(args.limit)];
+                                return [2 /*return*/, query_1];
+                            }
+                            return [2 /*return*/];
+                    }
+                });
+            }); }
         };
         return query;
     }, {});

@@ -258,7 +258,25 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
 
     const metaTypeQueries = rootTypes.reduce((query,type,i)=>{
         const meta = metas[i]
-        const resolve = async (source,args,context,info)=>{
+        query['count'+capitalize(type.name)] = {
+            type: GraphQLInt,
+            description:"Count "+meta.label,
+            args:makeQueryArgs(meta,context),
+            resolve:async (_,args)=>{
+                const model = await getModel(meta.name)
+                if(!model)
+                    return []
+                else {
+                    const findCondition = condition2FindOptions(args.search)
+                    return model.count(findCondition)
+                }
+            }
+        }
+        query[type.name] = {
+            type:new GraphQLList(type),
+            description:meta.label,
+            args:makeQueryArgs(meta,context),
+            resolve:async (_,args)=>{
                 const model = await getModel(meta.name)
                 if(!model)
                     return []
@@ -275,11 +293,6 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                     return query
                 }
             }
-        query[type.name] = {
-            type:new GraphQLList(type),
-            description:meta.label,
-            args:makeQueryArgs(meta,context),
-            resolve
         }
         return query
     },{} as GraphQLFieldConfigMap<any,any>)
