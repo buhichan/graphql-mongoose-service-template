@@ -1,6 +1,5 @@
 import { TypeMapperContext } from "./make-schema";
-import { IMeta } from "../../models/meta";
-import { deepGet } from "../..";
+import { IMeta, RefFieldMeta } from "../../models/meta";
 
 function markDeeperResolver(meta:IMeta,context:TypeMapperContext){
     if(meta.type === 'object')
@@ -47,7 +46,7 @@ async function resolveRefField(meta:IMeta, id,context:TypeMapperContext){
         }).then(markDeeperResolver(meta,context))
 }
 
-export function makeResolver(meta:IMeta,context:TypeMapperContext){
+export function makeRefResolver(meta:RefFieldMeta,context:TypeMapperContext){
     return async (source:any)=>{
         // const path = []
         // let pathP = info.path

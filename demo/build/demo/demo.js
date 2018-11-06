@@ -50,7 +50,7 @@ var Hapi = require("hapi");
 var joi = require("joi");
 var mongoose_1 = require("mongoose");
 var graphiql_1 = require("./graphiql");
-var example_1 = require("./example");
+var example_meta_1 = require("./example_meta");
 function bootstrap() {
     return __awaiter(this, void 0, void 0, function () {
         /**
@@ -115,10 +115,10 @@ function bootstrap() {
                         // makeModelFromMeta(meta)
                         return meta;
                     }).concat([
-                        example_1.Fault,
-                        example_1.Attr,
-                        example_1.Template,
-                        example_1.Enums
+                        example_meta_1.Fault,
+                        example_meta_1.Attr,
+                        example_meta_1.Template,
+                        example_meta_1.Enums
                     ]);
                     console.log("Metas loaded.");
                     return [4 /*yield*/, Promise.all(allMetas.map(function (meta) { return makeModelFromMeta({ connection: connection, meta: meta }); }))];
@@ -143,26 +143,24 @@ function bootstrap() {
                         metas: allMetas.concat(metaOfMeta),
                         queries: {
                             locations: {
-                                returns: {
-                                    name: "locations",
-                                    type: "array",
-                                    label: "Locations",
-                                    item: {
-                                        name: "option",
-                                        type: "object",
-                                        label: "Option",
-                                        fields: [
-                                            {
-                                                name: "name",
-                                                type: "string",
-                                                label: "Name"
-                                            }, {
-                                                name: "value",
-                                                type: "string",
-                                                label: "Value"
-                                            },
-                                        ]
-                                    }
+                                name: "locations",
+                                type: "array",
+                                label: "Locations",
+                                item: {
+                                    name: "option",
+                                    type: "object",
+                                    label: "Option",
+                                    fields: [
+                                        {
+                                            name: "name",
+                                            type: "string",
+                                            label: "Name"
+                                        }, {
+                                            name: "value",
+                                            type: "string",
+                                            label: "Value"
+                                        },
+                                    ]
                                 },
                                 resolve: function () {
                                     return [
@@ -173,28 +171,19 @@ function bootstrap() {
                             },
                         },
                         connection: connection,
-                        onMutation: {
-                            addMeta: reloadMetas,
-                            deleteMeta: reloadMetas,
-                            updateMeta: reloadMetas
-                        },
                         mutations: {
                             customAction: {
                                 args: {
                                     name: {
-                                        meta: {
-                                            type: "string",
-                                            name: "Name",
-                                            label: "Name"
-                                        },
+                                        type: "string",
+                                        name: "Name",
+                                        label: "Name",
                                         defaultValue: "world"
                                     }
                                 },
-                                returns: {
-                                    type: "string",
-                                    name: "string",
-                                    label: "string"
-                                },
+                                type: "string",
+                                name: "string",
+                                label: "string",
                                 resolve: function (args, context) {
                                     return "hello " + args.name;
                                 }

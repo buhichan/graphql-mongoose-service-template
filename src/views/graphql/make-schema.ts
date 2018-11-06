@@ -1,12 +1,12 @@
 import { GraphqlPluginOptions } from "./graphql";
 import { makeModelGetter, deepGet } from "../../utils";
-import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType, GraphQLFieldConfigArgumentMap, GraphQLNonNull } from "graphql";
+import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType, GraphQLFieldConfigArgumentMap, GraphQLNonNull, GraphQLObjectTypeConfig } from "graphql";
 import { Model } from "mongoose";
-import { IMeta, metaOfMeta } from "../../models/meta";
+import { IMeta, metaOfMeta, ObjectFieldMeta, ArrayFieldMeta, RefFieldMeta } from "../../models/meta";
 import { GraphQLAny } from "./type/any";
 import { validateData } from "../../models/validate";
-import { makeCustomTypes } from "./make-custom-types";
-import { makeResolver } from "./make-resolver";
+import { makeRefResolver } from "./make-ref-resolver";
+import { makeResolvableField } from "./make-resolvable-field";
 
 
 export type TypeMapperContext = {
@@ -24,21 +24,23 @@ function capitalize(str:string){
 }
 
 
-function mapMetaToField(fieldMeta:IMeta&{resolve?:(args:any,context:any)=>any},context:TypeMapperContext,path:string[]){
+function mapMetaToField(fieldMeta:IMeta,context:TypeMapperContext,path:string[]){
+    if(!fieldMeta.type){
+        return null
+    }
+    if(fieldMeta.resolve){
+        return makeResolvableField(fieldMeta,context)
+    }
     const field:GraphQLFieldConfig<void,void> = {
         type:mapMetaToOutputType(fieldMeta, context, path),
         description:fieldMeta.label
     }
-    if(!fieldMeta.type)
-        return null
     if(fieldMeta.type === 'ref' && fieldMeta.ref){
-        field.resolve = makeResolver(fieldMeta, context)
+        field.resolve = makeRefResolver(fieldMeta, context)
     }
     else if(fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref){
-        field.resolve = makeResolver(fieldMeta.item, context)
+        field.resolve = makeRefResolver(fieldMeta.item, context)
     }
-    else if(fieldMeta.resolve)
-        field.resolve = (_,args,context)=>fieldMeta.resolve(args,context)
     return field
 }
 
@@ -63,24 +65,25 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
         case field.type==="date": return GraphQLString
         case field.type==="number": return GraphQLInt
         case field.type==="ref" && context.outputTypeHashMap.has(field.ref): {
-            return context.outputTypeHashMap.get(field.ref)
+            return context.outputTypeHashMap.get((field as RefFieldMeta).ref)
         }
         case field.type==="boolean": return GraphQLBoolean
         case field.type==="array": {
+            //https://github.com/Microsoft/TypeScript/issues/10421
             // item's name must be equal to array's name, to ensure path is correct.
-            field.item.name = field.name
-            const item = mapMetaToOutputType(field.item,context,path)
+            (field as ArrayFieldMeta).item.name = field.name
+            const item = mapMetaToOutputType((field as ArrayFieldMeta).item,context,path)
             if(!item)
                 return null
             return new GraphQLList(item)
         }
-        case field.type==="object" && field.fields instanceof Array && field.fields.length > 0: {
+        case field.type==="object" && 'fields' in field && field.fields instanceof Array && field.fields.length > 0: {
             const ObjectTypeUniqueName = path.concat(field.name).join("__")
             if(!context.outputTypeHashMap.has(ObjectTypeUniqueName))
                 context.outputTypeHashMap.set(ObjectTypeUniqueName,new GraphQLObjectType({
                     name:ObjectTypeUniqueName,
                     description:field.label,
-                    fields:()=>field.fields.reduce((fields,childMeta)=>{
+                    fields:()=>(field as ObjectFieldMeta).fields.reduce((fields,childMeta)=>{
                         const child = mapMetaToField(childMeta,context,path.concat(field.name))
                         if(child)
                             fields[childMeta.name]=child
@@ -97,7 +100,9 @@ export function mapMetaToOutputType(field:IMeta,context:TypeMapperContext,path:s
 export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,path:string[],operationType:"Any"|"Read"|"Write"):GraphQLInputType|null{
     if(!meta)
         return null
-    if(meta.readonly && operationType === 'Write')
+    if(meta.resolve)
+        return null //TBD: resolvable field is assumed readonly
+    if('readonly' in meta && operationType === 'Write')
         return null
     if(meta.writeonly && operationType === 'Read')
         return null
@@ -108,7 +113,7 @@ export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,path:str
         if(!context.inputTypeHashMap.has(inputObjectTypeUniqueName))
             context.inputTypeHashMap.set(inputObjectTypeUniqueName,new GraphQLInputObjectType({
                 name:inputObjectTypeUniqueName,
-                fields:()=>meta.fields.reduce((inputFields,fieldMeta)=>{
+                fields:()=>(meta as ObjectFieldMeta).fields.reduce((inputFields,fieldMeta)=>{
                     const converted = mapMetaToInputType(fieldMeta, context, path.concat(meta.name) ,operationType)
                     if(converted)
                         inputFields[fieldMeta.name] = {
@@ -121,7 +126,7 @@ export function mapMetaToInputType(meta:IMeta,context:TypeMapperContext,path:str
         return context.inputTypeHashMap.get(inputObjectTypeUniqueName)
     }
     else if(meta.type==='array'){
-        const item = mapMetaToInputType(meta.item,context, path,operationType)
+        const item = mapMetaToInputType((meta as ArrayFieldMeta).item,context, path,operationType)
         if(!item)
             return null
         return new GraphQLList(item)
@@ -158,7 +163,7 @@ const sortArgType = new GraphQLList(new GraphQLInputObjectType({
     }
 }))
 
-function makeQueryArgs(meta:IMeta,context:TypeMapperContext){
+function makeQueryArgs(meta:ObjectFieldMeta,context:TypeMapperContext){
     const indexableFields = meta.fields.filter(x=>{
         return ['number','string','date'].includes(x.type) && x.name !== "_id"
     })
@@ -206,7 +211,6 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         metas,
         mutations:mutationMetas = {},
         queries:queryMetas = {},
-        onMutation = {},
     } = options
     options.metas.forEach(meta=>{
         if(!validateData(meta,metaOfMeta))
@@ -240,7 +244,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             readonly:true
         }
     ]
-    metas = metas.filter(x=>x && x.type==="object").map(modelMeta=>{
+    metas = metas.filter(x=>x && x.type==="object").map((modelMeta:ObjectFieldMeta)=>{
         context.metaMap.set(modelMeta.name, modelMeta)
         return {
             ...modelMeta,
@@ -302,7 +306,10 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             name:"Root",
             fields:{
                 ...metaTypeQueries,
-                ...makeCustomTypes(queryMetas, context, {}),
+                ...Object.keys(queryMetas).reduce((obj,queryFieldName)=>{
+                    obj[queryFieldName] = makeResolvableField(queryMetas[queryFieldName], context)
+                    return obj
+                },{} as GraphQLFieldConfigMap<any,any>)
             },
         }),
         types:rootTypes,
@@ -313,7 +320,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                     const modelType = context.outputTypeHashMap.get(meta.name)
                     if(!modelType)
                         throw new Error("Cannot find modelType:"+meta.name)
-                    const modelReadType = new GraphQLNonNull(mapMetaToInputType(meta,context, [],'Read'))
+                    // const modelReadType = new GraphQLNonNull(mapMetaToInputType(meta,context, [],'Read'))
                     const modelWriteType = new GraphQLNonNull(mapMetaToInputType(meta, context, [], 'Write'))
                     const addModelMutationName = 'add'+capitalize(meta.name)
                     mutations[addModelMutationName] = {
@@ -326,8 +333,6 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
                             const res = await model.create(args.payload)
-                            if(onMutation[addModelMutationName])
-                                await onMutation[addModelMutationName](args,res)
                             return res
                         }
                     }
@@ -347,8 +352,6 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                             const res = await model.findByIdAndUpdate(args._id,args.payload,{
                                 new:true
                             }).exec()
-                            if(onMutation[updateModelMutationName])
-                                await onMutation[updateModelMutationName](args,res)
                             return res
                         }
                     }
@@ -367,8 +370,6 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                             const model = await getModel(meta.name)
                             const updateResult = await model.updateMany( condition2FindOptions(args.condition) ,args.payload).exec()
                             const res = updateResult ? updateResult.n : 0
-                            if(onMutation[updateModelMutationName])
-                                await onMutation[updateModelMutationName](args,res)
                             return res
                         }
                     }
@@ -383,14 +384,15 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
                             const res = await model.findByIdAndRemove(args._id).exec()
-                            if(onMutation[deleteModelMutationName])
-                                await onMutation[deleteModelMutationName](args,res)
                             return !!res?1:0
                         }
                     }
                     return mutations
                 },{} as GraphQLFieldConfigMap<void,any>),
-                ...makeCustomTypes(mutationMetas, context, onMutation)
+                ...Object.keys(mutationMetas).reduce((obj,mutationName)=>{
+                    obj[mutationName] = makeResolvableField(mutationMetas[mutationName],context)
+                    return obj
+                },{})
             }
         })
     })

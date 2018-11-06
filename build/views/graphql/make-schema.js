@@ -71,28 +71,30 @@ var graphql_1 = require("graphql");
 var meta_1 = require("../../models/meta");
 var any_1 = require("./type/any");
 var validate_1 = require("../../models/validate");
-var make_custom_types_1 = require("./make-custom-types");
-var make_resolver_1 = require("./make-resolver");
+var make_ref_resolver_1 = require("./make-ref-resolver");
+var make_resolvable_field_1 = require("./make-resolvable-field");
 function capitalize(str) {
     if (!str)
         return str;
     return str[0].toUpperCase() + str.slice(1);
 }
 function mapMetaToField(fieldMeta, context, path) {
+    if (!fieldMeta.type) {
+        return null;
+    }
+    if (fieldMeta.resolve) {
+        return make_resolvable_field_1.makeResolvableField(fieldMeta, context);
+    }
     var field = {
         type: mapMetaToOutputType(fieldMeta, context, path),
         description: fieldMeta.label
     };
-    if (!fieldMeta.type)
-        return null;
     if (fieldMeta.type === 'ref' && fieldMeta.ref) {
-        field.resolve = make_resolver_1.makeResolver(fieldMeta, context);
+        field.resolve = make_ref_resolver_1.makeRefResolver(fieldMeta, context);
     }
     else if (fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref) {
-        field.resolve = make_resolver_1.makeResolver(fieldMeta.item, context);
+        field.resolve = make_ref_resolver_1.makeRefResolver(fieldMeta.item, context);
     }
-    else if (fieldMeta.resolve)
-        field.resolve = function (_, args, context) { return fieldMeta.resolve(args, context); };
     return field;
 }
 //path不包括field.name
@@ -123,6 +125,7 @@ function mapMetaToOutputType(field, context, path) {
         }
         case field.type === "boolean": return graphql_1.GraphQLBoolean;
         case field.type === "array": {
+            //https://github.com/Microsoft/TypeScript/issues/10421
             // item's name must be equal to array's name, to ensure path is correct.
             field.item.name = field.name;
             var item = mapMetaToOutputType(field.item, context, path);
@@ -130,7 +133,7 @@ function mapMetaToOutputType(field, context, path) {
                 return null;
             return new graphql_1.GraphQLList(item);
         }
-        case field.type === "object" && field.fields instanceof Array && field.fields.length > 0: {
+        case field.type === "object" && 'fields' in field && field.fields instanceof Array && field.fields.length > 0: {
             var ObjectTypeUniqueName = path.concat(field.name).join("__");
             if (!context.outputTypeHashMap.has(ObjectTypeUniqueName))
                 context.outputTypeHashMap.set(ObjectTypeUniqueName, new graphql_1.GraphQLObjectType({
@@ -153,7 +156,9 @@ exports.mapMetaToOutputType = mapMetaToOutputType;
 function mapMetaToInputType(meta, context, path, operationType) {
     if (!meta)
         return null;
-    if (meta.readonly && operationType === 'Write')
+    if (meta.resolve)
+        return null; //TBD: resolvable field is assumed readonly
+    if ('readonly' in meta && operationType === 'Write')
         return null;
     if (meta.writeonly && operationType === 'Read')
         return null;
@@ -250,7 +255,7 @@ function condition2FindOptions(search) {
 }
 function makeGraphQLSchema(options) {
     var _this = this;
-    var connection = options.connection, metas = options.metas, _a = options.mutations, mutationMetas = _a === void 0 ? {} : _a, _b = options.queries, queryMetas = _b === void 0 ? {} : _b, _c = options.onMutation, onMutation = _c === void 0 ? {} : _c;
+    var connection = options.connection, metas = options.metas, _a = options.mutations, mutationMetas = _a === void 0 ? {} : _a, _b = options.queries, queryMetas = _b === void 0 ? {} : _b;
     options.metas.forEach(function (meta) {
         if (!validate_1.validateData(meta, meta_1.metaOfMeta))
             throw new Error("Invalid meta: " + meta.name);
@@ -349,7 +354,10 @@ function makeGraphQLSchema(options) {
     var schema = new graphql_1.GraphQLSchema({
         query: new graphql_1.GraphQLObjectType({
             name: "Root",
-            fields: __assign({}, metaTypeQueries, make_custom_types_1.makeCustomTypes(queryMetas, context, {})),
+            fields: __assign({}, metaTypeQueries, Object.keys(queryMetas).reduce(function (obj, queryFieldName) {
+                obj[queryFieldName] = make_resolvable_field_1.makeResolvableField(queryMetas[queryFieldName], context);
+                return obj;
+            }, {})),
         }),
         types: rootTypes,
         mutation: new graphql_1.GraphQLObjectType({
@@ -358,7 +366,7 @@ function makeGraphQLSchema(options) {
                 var modelType = context.outputTypeHashMap.get(meta.name);
                 if (!modelType)
                     throw new Error("Cannot find modelType:" + meta.name);
-                var modelReadType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, [], 'Read'));
+                // const modelReadType = new GraphQLNonNull(mapMetaToInputType(meta,context, [],'Read'))
                 var modelWriteType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, [], 'Write'));
                 var addModelMutationName = 'add' + capitalize(meta.name);
                 mutations[addModelMutationName] = {
@@ -378,12 +386,7 @@ function makeGraphQLSchema(options) {
                                     return [4 /*yield*/, model.create(args.payload)];
                                 case 2:
                                     res = _a.sent();
-                                    if (!onMutation[addModelMutationName]) return [3 /*break*/, 4];
-                                    return [4 /*yield*/, onMutation[addModelMutationName](args, res)];
-                                case 3:
-                                    _a.sent();
-                                    _a.label = 4;
-                                case 4: return [2 /*return*/, res];
+                                    return [2 /*return*/, res];
                             }
                         });
                     }); }
@@ -411,12 +414,7 @@ function makeGraphQLSchema(options) {
                                         }).exec()];
                                 case 2:
                                     res = _a.sent();
-                                    if (!onMutation[updateModelMutationName]) return [3 /*break*/, 4];
-                                    return [4 /*yield*/, onMutation[updateModelMutationName](args, res)];
-                                case 3:
-                                    _a.sent();
-                                    _a.label = 4;
-                                case 4: return [2 /*return*/, res];
+                                    return [2 /*return*/, res];
                             }
                         });
                     }); }
@@ -443,12 +441,7 @@ function makeGraphQLSchema(options) {
                                 case 2:
                                     updateResult = _a.sent();
                                     res = updateResult ? updateResult.n : 0;
-                                    if (!onMutation[updateModelMutationName]) return [3 /*break*/, 4];
-                                    return [4 /*yield*/, onMutation[updateModelMutationName](args, res)];
-                                case 3:
-                                    _a.sent();
-                                    _a.label = 4;
-                                case 4: return [2 /*return*/, res];
+                                    return [2 /*return*/, res];
                             }
                         });
                     }); }
@@ -471,18 +464,16 @@ function makeGraphQLSchema(options) {
                                     return [4 /*yield*/, model.findByIdAndRemove(args._id).exec()];
                                 case 2:
                                     res = _a.sent();
-                                    if (!onMutation[deleteModelMutationName]) return [3 /*break*/, 4];
-                                    return [4 /*yield*/, onMutation[deleteModelMutationName](args, res)];
-                                case 3:
-                                    _a.sent();
-                                    _a.label = 4;
-                                case 4: return [2 /*return*/, !!res ? 1 : 0];
+                                    return [2 /*return*/, !!res ? 1 : 0];
                             }
                         });
                     }); }
                 };
                 return mutations;
-            }, {}), make_custom_types_1.makeCustomTypes(mutationMetas, context, onMutation))
+            }, {}), Object.keys(mutationMetas).reduce(function (obj, mutationName) {
+                obj[mutationName] = make_resolvable_field_1.makeResolvableField(mutationMetas[mutationName], context);
+                return obj;
+            }, {}))
         })
     });
     return schema;

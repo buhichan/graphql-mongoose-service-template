@@ -1,7 +1,8 @@
 import { Schema } from "mongoose";
 import { IMetaConstraint, applyMetaValidator, fieldValidator } from "./validate";
+import { GraphQLFieldResolver } from "graphql";
 
-export const fieldTypes = {
+export const mapFieldTypeToMongooseType = {
     "number":Number,
     "string":String,
     "boolean":Boolean,
@@ -9,27 +10,47 @@ export const fieldTypes = {
     "array":Array,
     "object":Object,
     "date":Date,
-    "any":Schema.Types.Mixed    
+    "any":Schema.Types.Mixed
 }
 
-export type FieldTypes = keyof typeof fieldTypes
+export type FieldTypes = keyof typeof mapFieldTypeToMongooseType
 
 export type SimpleFieldTypes = Exclude<FieldTypes, "object"|"ref"|"array" >
 
-
-export interface IMeta {
+type BaseMeta = {
     name:string,
     label:string,
-    type:FieldTypes
-    fields?:IMeta[]
-    item?:IMeta,
-    enum?:string[]
-    ref?:string,
-
     validate?:IMetaConstraint
-    readonly?:boolean
     writeonly?:boolean
+    readonly?:boolean,
+    defaultValue?:any,
+    resolve?:GraphQLFieldResolver<any,any,any>,
+    args?:{
+        [argName:string]:IMeta
+    }
 }
+
+export type SimpleFieldMeta = BaseMeta & {
+    type:SimpleFieldTypes
+    enum?:string[]
+}
+
+export type ArrayFieldMeta = BaseMeta & {
+    type:"array",
+    item:IMeta
+}
+
+export type RefFieldMeta = BaseMeta & {
+    type:"ref",
+    ref:string
+}
+
+export type ObjectFieldMeta = BaseMeta & {
+    type:"object",
+    fields:IMeta[]
+}
+
+export type IMeta = SimpleFieldMeta | ArrayFieldMeta | RefFieldMeta | ObjectFieldMeta
 
 function buildMeta(nestLevel:number){
     if(nestLevel === 0)
@@ -48,7 +69,7 @@ function buildMeta(nestLevel:number){
             name:"type",
             label:"类型",
             type:"string",
-            enum:Object.keys(fieldTypes),
+            enum:Object.keys(mapFieldTypeToMongooseType),
         },{
             name:"enum",
             label:"枚举",
@@ -92,7 +113,7 @@ function buildMeta(nestLevel:number){
     return fields
 }
 
-export const metaOfMeta:IMeta = {
+export const metaOfMeta:ObjectFieldMeta = {
     name:"Meta",
     label:"元数据",
     type:"object",

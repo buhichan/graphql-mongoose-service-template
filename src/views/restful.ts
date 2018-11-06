@@ -1,4 +1,4 @@
-import { IMeta } from "../models/meta";
+import { IMeta, ObjectFieldMeta } from "../models/meta";
 import { ServerRoute, Request } from "hapi"
 import { pipe, defaultValue, head } from "../utils";
 import * as joi from "joi"
@@ -65,7 +65,7 @@ export function restfulRoutes(options:BuildRoutesOptions):ServerRoute[]{
             handler:pipe(
                 async (req)=>{
                     const model = await getModel(meta.name)
-                    const where = meta.fields.reduce((query,k)=>{
+                    const where = (meta as ObjectFieldMeta).fields.reduce((query,k)=>{
                         const field = getQuery(k.name)(req)
                         if(field !== undefined)
                             query[k.name] = field

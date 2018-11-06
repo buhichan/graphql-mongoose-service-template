@@ -16,6 +16,10 @@ var mongoose_1 = require("mongoose");
 var validate_1 = require("./validate");
 var typeKey = '$type';
 function mapMetaTypeToMongooseType(fieldMeta) {
+    var _a;
+    if (fieldMeta.resolve) { // TBD:resolve的不存在于数据库
+        return null;
+    }
     switch (fieldMeta.type) {
         case "array": {
             var item = makeFieldDefinition(fieldMeta.item);
@@ -26,8 +30,11 @@ function mapMetaTypeToMongooseType(fieldMeta) {
         case "object":
             return makeSchemaDefinition(fieldMeta.fields);
         default: {
-            if (fieldMeta.type in meta_1.fieldTypes)
-                return meta_1.fieldTypes[fieldMeta.type];
+            if (fieldMeta.type in meta_1.mapFieldTypeToMongooseType)
+                return _a = {},
+                    _a[typeKey] = meta_1.mapFieldTypeToMongooseType[fieldMeta.type],
+                    _a.default = fieldMeta.defaultValue,
+                    _a;
             else
                 return null;
         }

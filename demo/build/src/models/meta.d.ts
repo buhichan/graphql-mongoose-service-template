@@ -1,6 +1,7 @@
 import { Schema } from "mongoose";
 import { IMetaConstraint } from "./validate";
-export declare const fieldTypes: {
+import { GraphQLFieldResolver } from "graphql";
+export declare const mapFieldTypeToMongooseType: {
     "number": NumberConstructor;
     "string": StringConstructor;
     "boolean": BooleanConstructor;
@@ -10,18 +11,36 @@ export declare const fieldTypes: {
     "date": DateConstructor;
     "any": typeof Schema.Types.Mixed;
 };
-export declare type FieldTypes = keyof typeof fieldTypes;
+export declare type FieldTypes = keyof typeof mapFieldTypeToMongooseType;
 export declare type SimpleFieldTypes = Exclude<FieldTypes, "object" | "ref" | "array">;
-export interface IMeta {
+declare type BaseMeta = {
     name: string;
     label: string;
-    type: FieldTypes;
-    fields?: IMeta[];
-    item?: IMeta;
-    enum?: string[];
-    ref?: string;
     validate?: IMetaConstraint;
-    readonly?: boolean;
     writeonly?: boolean;
-}
-export declare const metaOfMeta: IMeta;
+    readonly?: boolean;
+    defaultValue?: any;
+    resolve?: GraphQLFieldResolver<any, any, any>;
+    args?: {
+        [argName: string]: IMeta;
+    };
+};
+export declare type SimpleFieldMeta = BaseMeta & {
+    type: SimpleFieldTypes;
+    enum?: string[];
+};
+export declare type ArrayFieldMeta = BaseMeta & {
+    type: "array";
+    item: IMeta;
+};
+export declare type RefFieldMeta = BaseMeta & {
+    type: "ref";
+    ref: string;
+};
+export declare type ObjectFieldMeta = BaseMeta & {
+    type: "object";
+    fields: IMeta[];
+};
+export declare type IMeta = SimpleFieldMeta | ArrayFieldMeta | RefFieldMeta | ObjectFieldMeta;
+export declare const metaOfMeta: ObjectFieldMeta;
+export {};

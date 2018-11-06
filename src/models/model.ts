@@ -1,4 +1,4 @@
-import { metaOfMeta,IMeta, fieldTypes} from "./meta"
+import { metaOfMeta,IMeta, mapFieldTypeToMongooseType, RefFieldMeta} from "./meta"
 import { Connection, Document, Schema, SchemaOptions, SchemaDefinition } from "mongoose";
 import { validateData, MetaValidationError } from "./validate";
 
@@ -9,6 +9,9 @@ export interface TypedDocument<T> extends Document {
 }
 
 function mapMetaTypeToMongooseType(fieldMeta:IMeta){
+    if(fieldMeta.resolve){ // TBD:resolve的不存在于数据库
+        return null
+    }
     switch(fieldMeta.type){
         case "array":{
             const item = makeFieldDefinition(fieldMeta.item)
@@ -19,8 +22,11 @@ function mapMetaTypeToMongooseType(fieldMeta:IMeta){
         case "object":
             return makeSchemaDefinition(fieldMeta.fields)
         default:{
-            if(fieldMeta.type in fieldTypes)
-                return fieldTypes[fieldMeta.type]
+            if(fieldMeta.type in mapFieldTypeToMongooseType)
+                return {
+                    [typeKey]: mapFieldTypeToMongooseType[fieldMeta.type],
+                    default: fieldMeta.defaultValue
+                }
             else
                 return null
         }
@@ -29,10 +35,10 @@ function mapMetaTypeToMongooseType(fieldMeta:IMeta){
 
 function makeFieldDefinition(fieldMeta:IMeta){
     const type = mapMetaTypeToMongooseType(fieldMeta)
-    if(fieldMeta.ref)
+    if((fieldMeta as RefFieldMeta).ref)
         return {
             [typeKey]: type,
-            ref:fieldMeta.ref
+            ref:(fieldMeta as RefFieldMeta).ref
         }
     return type
 }

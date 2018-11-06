@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 var mongoose_1 = require("mongoose");
 var validate_1 = require("./validate");
-exports.fieldTypes = {
+exports.mapFieldTypeToMongooseType = {
     "number": Number,
     "string": String,
     "boolean": Boolean,
@@ -29,7 +29,7 @@ function buildMeta(nestLevel) {
             name: "type",
             label: "类型",
             type: "string",
-            enum: Object.keys(exports.fieldTypes),
+            enum: Object.keys(exports.mapFieldTypeToMongooseType),
         }, {
             name: "enum",
             label: "枚举",

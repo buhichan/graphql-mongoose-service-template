@@ -92,7 +92,7 @@ function validateData(data, meta) {
                 return false;
         }
     }
-    if (meta.enum && meta.enum.length && !meta.enum.includes(data))
+    if ('enum' in meta && meta.enum.length && !meta.enum.includes(data))
         return [{
                 path: meta.name,
                 message: "expect one of " + meta.enum.join(",") + ", received " + String(data)

@@ -1,34 +1,19 @@
-import { IMeta } from "../../models/meta";
-import { GraphQLSchema,graphql} from "graphql";
+import { IMeta, ObjectFieldMeta } from "../../models/meta";
+import { GraphQLSchema,graphql, GraphQLFieldResolver} from "graphql";
 import { Plugin,Request } from "hapi";
 import { Connection } from "mongoose";
 import { makeGraphQLSchema } from "./make-schema";
 
-export type CustomTypeDesc<Context> = {
-    args?:{
-        [name:string]:{
-            meta:IMeta,
-            defaultValue?:any
-        }
-    },
-    label?:string,
-    returns?:IMeta,
-    resolve:(args?:any,req?:Context)=>any
-}
-
 export type GraphqlPluginOptions<Context=Request> = {
-    metas:IMeta[],
+    metas:ObjectFieldMeta[],
     connection:Connection,
     getContext?:(request:Request)=>Context
     queries?:{
-        [name:string]:CustomTypeDesc<Context>
+        [name:string]:IMeta
     },
     mutations?:{
-        [name:string]:CustomTypeDesc<Context>
+        [name:string]:IMeta
     },
-    onMutation?:{
-        [mutationName:string]:(args:any,res:any)=>void
-    }
 }
 
 

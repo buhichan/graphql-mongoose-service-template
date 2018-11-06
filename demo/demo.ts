@@ -4,8 +4,8 @@ import * as Hapi from "hapi"
 import * as joi from "joi"
 import { Mongoose } from "mongoose";
 import graphiql from "./graphiql";
-import { IMeta } from "../src";
-import { Template,Attr,Enums, Fault } from "./example";
+import { IMeta, ObjectFieldMeta } from "../src";
+import { Template,Attr,Enums, Fault } from "./example_meta";
 
 
 export async function bootstrap(){
@@ -40,7 +40,7 @@ export async function bootstrap(){
     const allMetas = metas.map(x=>{
         const meta = x.toObject()
         // makeModelFromMeta(meta)
-        return meta as IMeta
+        return meta as ObjectFieldMeta
     }).concat([
         Fault,
         Attr,
@@ -81,26 +81,24 @@ export async function bootstrap(){
         metas:allMetas.concat(metaOfMeta),
         queries:{
             locations:{
-                returns:{
-                    name:"locations",
-                    type:"array",
-                    label:"Locations",
-                    item:{
-                        name:"option",
-                        type:"object",
-                        label:"Option",
-                        fields:[
-                            {
-                                name:"name",
-                                type:"string",
-                                label:"Name"
-                            },{
-                                name:"value",
-                                type:"string",
-                                label:"Value"
-                            },
-                        ]
-                    }
+                name:"locations",
+                type:"array",
+                label:"Locations",
+                item:{
+                    name:"option",
+                    type:"object",
+                    label:"Option",
+                    fields:[
+                        {
+                            name:"name",
+                            type:"string",
+                            label:"Name"
+                        },{
+                            name:"value",
+                            type:"string",
+                            label:"Value"
+                        },
+                    ]
                 },
                 resolve(){
                     return [
@@ -111,28 +109,19 @@ export async function bootstrap(){
             },
         },
         connection,
-        onMutation:{
-            addMeta:reloadMetas,
-            deleteMeta:reloadMetas,
-            updateMeta:reloadMetas
-        },
         mutations:{
             customAction:{
                 args:{
                     name:{
-                        meta:{
-                            type:"string",
-                            name:"Name",
-                            label:"Name"
-                        },
+                        type:"string",
+                        name:"Name",
+                        label:"Name",
                         defaultValue:"world"
                     }
                 },
-                returns:{
-                    type:"string",
-                    name:"string",
-                    label:"string"
-                },
+                type:"string",
+                name:"string",
+                label:"string",
                 resolve:(args,context)=>{
                     return "hello "+args.name
                 }
