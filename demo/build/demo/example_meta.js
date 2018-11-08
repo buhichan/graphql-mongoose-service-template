@@ -23,7 +23,6 @@ exports.Fault = {
                 }
             },
             resolve: function (source, args) {
-                console.log("haha");
                 return "hello " + args.arg1 + "\n, handleperson is " + source.Extend.handle_person;
             }
         },

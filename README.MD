@@ -123,7 +123,8 @@ app.listen()
     - [ ] required/NonNull的支持
 - [x] 不重启就载入model的改变
     - 需要手动打开
-- [ ] batcher/dataloader
+- [x] batcher/dataloader
+    - Solve n+1 problem
 
 # Dev
 

@@ -73,6 +73,7 @@ var any_1 = require("./type/any");
 var validate_1 = require("../../models/validate");
 var make_ref_resolver_1 = require("./make-ref-resolver");
 var make_resolvable_field_1 = require("./make-resolvable-field");
+var batching_1 = require("./batching");
 function capitalize(str) {
     if (!str)
         return str;
@@ -263,6 +264,7 @@ function makeGraphQLSchema(options) {
     var getModel = utils_1.makeModelGetter(connection);
     var context = {
         getModel: getModel,
+        batcherMap: new Map(),
         metaMap: new Map(),
         enumTypePoll: {},
         inputTypeHashMap: new Map(),
@@ -290,6 +292,21 @@ function makeGraphQLSchema(options) {
     metas = metas.filter(function (x) { return x && x.type === "object"; }).map(function (modelMeta) {
         context.metaMap.set(modelMeta.name, modelMeta);
         return __assign({}, modelMeta, { fields: __spread(modelMeta.fields, internalFields.filter(function (x) { return !modelMeta.fields.some(function (y) { return y.name === x.name; }); })) });
+    });
+    metas.forEach(function (meta) {
+        context.batcherMap.set(meta.name, batching_1.makeBatch(function (ids) {
+            console.debug("batch resolving ref: " + meta.name + ", ids length " + ids.length);
+            var model = context.getModel(meta.name);
+            if (!model)
+                return Promise.resolve(null);
+            return model.find({
+                _id: {
+                    $in: ids.map(String)
+                }
+            }).then(function (res) {
+                return res;
+            });
+        }));
     });
     var rootTypes = metas.map(function (modelMeta) {
         return mapMetaToOutputType(modelMeta, context, []);

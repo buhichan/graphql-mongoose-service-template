@@ -7,11 +7,13 @@ import { GraphQLAny } from "./type/any";
 import { validateData } from "../../models/validate";
 import { makeRefResolver } from "./make-ref-resolver";
 import { makeResolvableField } from "./make-resolvable-field";
+import { makeBatch } from "./batching";
 
 
 export type TypeMapperContext = {
     getModel:(metaName:string)=>Model<any> | null
     metaMap:Map<string,IMeta>,
+    batcherMap:Map<string,ReturnType<typeof makeBatch>>,
     outputTypeHashMap:Map<string,GraphQLOutputType>
     inputTypeHashMap:Map<string,GraphQLInputType>
     enumTypePoll:{[name:string]:GraphQLEnumType}
@@ -220,6 +222,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
     
     const context:TypeMapperContext = {
         getModel,
+        batcherMap:new Map(),
         metaMap:new Map(),
         enumTypePoll:{},
         inputTypeHashMap:new Map(),
@@ -253,6 +256,21 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 ...internalFields.filter(x=>!modelMeta.fields.some(y=>y.name === x.name))
             ]
         }
+    })
+    metas.forEach(meta=>{
+        context.batcherMap.set(meta.name,makeBatch(ids=>{
+            console.debug(`batch resolving ref: ${meta.name}, ids length ${ids.length}`)
+            const model = context.getModel(meta.name)
+            if(!model)
+                return Promise.resolve(null)
+            return model.find({
+                _id:{
+                    $in:ids.map(String)
+                }
+            }).then(res=>{
+                return res
+            })
+        }))
     })
     const rootTypes = metas.map(modelMeta=>{
         return mapMetaToOutputType(modelMeta,context,[]) as GraphQLObjectType

@@ -35,58 +35,33 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-function markDeeperResolver(meta, context) {
-    if (meta.type === 'object')
-        return function (value) {
-            if (!value)
-                return value;
-            meta.fields.forEach(function (child) {
-                value[child.name] = markDeeperResolver(child, context)(value[child.name]);
-            });
-            return value;
-        };
-    if (meta.type === 'array')
-        return function (value) {
-            if (value instanceof Array)
-                return value.map(markDeeperResolver(meta.item, context));
-        };
-    if (meta.type === 'ref')
-        return function (value) {
-            if (value === null)
-                return null;
-            if (context.metaMap.has(meta.ref))
-                return function () { return resolveRefField(context.metaMap.get(meta.ref), value, context); };
-            return value;
-        };
-    return function (value) { return value; };
-}
-function resolveRefField(meta, id, context) {
-    return __awaiter(this, void 0, void 0, function () {
-        var model;
+var bson_1 = require("bson");
+function recursivelyResolveRefField(meta, context) {
+    var _this = this;
+    return function (value) { return __awaiter(_this, void 0, void 0, function () {
+        var batcher, resolveNested;
         return __generator(this, function (_a) {
-            switch (_a.label) {
-                case 0:
-                    if (!id)
-                        return [2 /*return*/, null];
-                    return [4 /*yield*/, context.getModel(meta.name)];
-                case 1:
-                    model = _a.sent();
-                    if (!model)
-                        return [2 /*return*/, null];
-                    if (id instanceof Array)
-                        return [2 /*return*/, model.find({
-                                _id: {
-                                    $in: String(id)
-                                }
-                            }).then(function (x) { return x.map(markDeeperResolver(meta, context)); })];
-                    else
-                        return [2 /*return*/, model.findById(String(id)).then(function (res) {
-                                return res;
-                            }).then(markDeeperResolver(meta, context))];
-                    return [2 /*return*/];
+            if (!value) {
+                return [2 /*return*/, null];
             }
+            else if (meta.type === 'object') {
+                return [2 /*return*/, Promise.all(meta.fields.map(function (child) {
+                        return recursivelyResolveRefField(child, context)(value[child.name]).then(function (childValue) {
+                            value[child.name] = childValue;
+                        });
+                    })).then(function () { return value; })];
+            }
+            else if (meta.type === 'array' && value instanceof Array) {
+                return [2 /*return*/, Promise.all(value.map(recursivelyResolveRefField(meta.item, context)))];
+            }
+            else if (meta.type === 'ref' && context.metaMap.has(meta.ref) && bson_1.ObjectID.isValid(value)) {
+                batcher = context.batcherMap.get(meta.ref);
+                resolveNested = recursivelyResolveRefField(context.metaMap.get(meta.ref), context);
+                return [2 /*return*/, batcher(value).then(resolveNested)];
+            }
+            return [2 /*return*/, value];
         });
-    });
+    }); };
 }
 function makeRefResolver(meta, context) {
     var _this = this;
@@ -96,7 +71,10 @@ function makeRefResolver(meta, context) {
             id = source[meta.name];
             if (!context.metaMap.has(meta.ref))
                 return [2 /*return*/, id];
-            return [2 /*return*/, resolveRefField(context.metaMap.get(meta.ref), id, context)];
+            return [2 /*return*/, recursivelyResolveRefField(meta, context)(id)
+                    .then(function (res) {
+                    return res;
+                })];
         });
     }); };
 }

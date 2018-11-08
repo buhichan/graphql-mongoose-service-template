@@ -1,49 +1,27 @@
 import { TypeMapperContext } from "./make-schema";
 import { IMeta, RefFieldMeta } from "../../models/meta";
+import { makeBatch } from "./batching";
+import { ObjectID } from "bson";
 
-function markDeeperResolver(meta:IMeta,context:TypeMapperContext){
-    if(meta.type === 'object')
-        return (value)=>{
-            if(!value)
-                return value
-            meta.fields.forEach(child=>{
-                value[child.name] = markDeeperResolver(child,context)(value[child.name])
-            })
-            return value
+function recursivelyResolveRefField(meta:IMeta,context:TypeMapperContext){
+    return async (value):Promise<any>=>{
+        if(!value){
+            return null
+        }else if(meta.type === 'object'){
+            return Promise.all(meta.fields.map(child=>{
+                return recursivelyResolveRefField(child,context)(value[child.name]).then(childValue=>{
+                    value[child.name] = childValue
+                })
+            })).then(()=>value)
+        }else if(meta.type === 'array' && value instanceof Array){
+            return Promise.all(value.map(recursivelyResolveRefField(meta.item,context)))
+        }else if(meta.type === 'ref' && context.metaMap.has(meta.ref) && ObjectID.isValid(value)){
+            const batcher = context.batcherMap.get(meta.ref)
+            const resolveNested = recursivelyResolveRefField(context.metaMap.get(meta.ref),context)
+            return batcher(value).then(resolveNested)
         }
-    if(meta.type === 'array')
-        return value=>{
-            if(value instanceof Array)
-                return value.map(markDeeperResolver(meta.item,context))
-        }
-    if(meta.type === 'ref')
-        return value=>{
-            if(value === null)
-                return null
-            if(context.metaMap.has(meta.ref))
-                return ()=>resolveRefField(context.metaMap.get(meta.ref), value, context)
-            return value
-        }
-    return value=>value
-}
-
-async function resolveRefField(meta:IMeta, id,context:TypeMapperContext){
-    if(!id)
-        return null
-    const model = await context.getModel(meta.name)
-    if(!model)
-        return null
-   
-    if(id instanceof Array)
-        return model.find({
-            _id:{
-                $in:String(id)
-            }
-        }).then(x=>x.map(markDeeperResolver(meta,context)))
-    else
-        return model.findById(String(id)).then(res=>{
-            return res
-        }).then(markDeeperResolver(meta,context))
+        return value
+    }
 }
 
 export function makeRefResolver(meta:RefFieldMeta,context:TypeMapperContext){
@@ -58,6 +36,9 @@ export function makeRefResolver(meta:RefFieldMeta,context:TypeMapperContext){
         const id = source[meta.name]
         if(!context.metaMap.has(meta.ref))
             return id
-        return resolveRefField(context.metaMap.get(meta.ref), id, context)
+        return recursivelyResolveRefField(meta,context)(id)
+            .then(res=>{
+                return res
+            })
     }
 }
