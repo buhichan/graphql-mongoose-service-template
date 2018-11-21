@@ -258,17 +258,21 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
         }
     })
     metas.forEach(meta=>{
-        context.batcherMap.set(meta.name,makeBatch(ids=>{
+        context.batcherMap.set(meta.name,makeBatch((ids:string[])=>{
             console.debug(`batch resolving ref: ${meta.name}, ids length ${ids.length}`)
             const model = context.getModel(meta.name)
             if(!model)
                 return Promise.resolve(null)
+            const idOrderMap = ids.reduce((map,id,i)=>{
+                map[id] = i
+                return map
+            },{} as {[id:string]:number})
             return model.find({
                 _id:{
                     $in:ids.map(String)
                 }
             }).then(res=>{
-                return res
+                return res.sort((a,b)=>idOrderMap[String(a._id)]-idOrderMap[String(b._id)])
             })
         }))
     })

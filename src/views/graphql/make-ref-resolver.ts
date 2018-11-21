@@ -1,6 +1,5 @@
 import { TypeMapperContext } from "./make-schema";
 import { IMeta, RefFieldMeta } from "../../models/meta";
-import { makeBatch } from "./batching";
 import { ObjectID } from "bson";
 
 function recursivelyResolveRefField(meta:IMeta,context:TypeMapperContext){
