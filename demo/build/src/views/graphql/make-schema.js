@@ -74,6 +74,7 @@ var validate_1 = require("../../models/validate");
 var make_ref_resolver_1 = require("./make-ref-resolver");
 var make_resolvable_field_1 = require("./make-resolvable-field");
 var batching_1 = require("./batching");
+var bson_1 = require("bson");
 function capitalize(str) {
     if (!str)
         return str;
@@ -252,6 +253,8 @@ function condition2FindOptions(search) {
     if (search != undefined && search instanceof Array) {
         return search.map(condition2FindOptions);
     }
+    if (bson_1.ObjectID.isValid(search))
+        return new bson_1.ObjectID(search);
     return search;
 }
 function makeGraphQLSchema(options) {
@@ -362,7 +365,9 @@ function makeGraphQLSchema(options) {
                                     .skip(args.skip);
                                 if (args.limit)
                                     return [2 /*return*/, query_1.limit(args.limit)];
-                                return [2 /*return*/, query_1];
+                                return [2 /*return*/, query_1.then(function (res) {
+                                        return res;
+                                    })];
                             }
                             return [2 /*return*/];
                     }

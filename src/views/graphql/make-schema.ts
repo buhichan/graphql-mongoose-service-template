@@ -8,6 +8,7 @@ import { validateData } from "../../models/validate";
 import { makeRefResolver } from "./make-ref-resolver";
 import { makeResolvableField } from "./make-resolvable-field";
 import { makeBatch } from "./batching";
+import { ObjectID } from "bson";
 
 
 export type TypeMapperContext = {
@@ -204,6 +205,8 @@ function condition2FindOptions(search:any){
     if(search != undefined && search instanceof Array){
         return search.map(condition2FindOptions)
     }
+    if(ObjectID.isValid(search))
+        return new ObjectID(search)
     return search
 }
 
@@ -315,7 +318,9 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         .skip(args.skip)
                     if(args.limit)
                         return query.limit(args.limit)
-                    return query
+                    return query.then(res=>{
+                        return res
+                    })
                 }
             }
         }
