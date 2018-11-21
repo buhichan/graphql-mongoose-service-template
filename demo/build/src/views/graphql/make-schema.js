@@ -299,12 +299,16 @@ function makeGraphQLSchema(options) {
             var model = context.getModel(meta.name);
             if (!model)
                 return Promise.resolve(null);
+            var idOrderMap = ids.reduce(function (map, id, i) {
+                map[id] = i;
+                return map;
+            }, {});
             return model.find({
                 _id: {
                     $in: ids.map(String)
                 }
             }).then(function (res) {
-                return res;
+                return res.sort(function (a, b) { return idOrderMap[String(a._id)] - idOrderMap[String(b._id)]; });
             });
         }));
     });
