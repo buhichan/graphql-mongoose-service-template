@@ -263,16 +263,15 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
             const model = context.getModel(meta.name)
             if(!model)
                 return Promise.resolve(null)
-            const idOrderMap = ids.reduce((map,id,i)=>{
-                map[id] = i
-                return map
-            },{} as {[id:string]:number})
             return model.find({
                 _id:{
                     $in:ids.map(String)
                 }
             }).then(res=>{
-                return res.sort((a,b)=>idOrderMap[String(a._id)]-idOrderMap[String(b._id)])
+                const ordered = ids.map(id=>{
+                    return res.find(x=>String(x._id) === String(id))
+                })
+                return ordered
             })
         }))
     })
