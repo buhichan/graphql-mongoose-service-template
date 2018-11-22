@@ -1,6 +1,6 @@
 import { GraphqlPluginOptions } from "./graphql";
 import { makeModelGetter, deepGet } from "../../utils";
-import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType, GraphQLFieldConfigArgumentMap, GraphQLNonNull, GraphQLObjectTypeConfig } from "graphql";
+import { GraphQLSchema, GraphQLObjectType, GraphQLFieldConfigMap, GraphQLString, GraphQLInt, GraphQLList, GraphQLEnumType, graphql, GraphQLType, GraphQLBoolean, GraphQLID, GraphQLOutputType, GraphQLFieldConfig, GraphQLInputType, isInputType, GraphQLInputObjectType, GraphQLFieldConfigArgumentMap, GraphQLNonNull, GraphQLObjectTypeConfig, GraphQLArgumentConfig } from "graphql";
 import { Model } from "mongoose";
 import { IMeta, metaOfMeta, ObjectFieldMeta, ArrayFieldMeta, RefFieldMeta } from "../../models/meta";
 import { GraphQLAny } from "./type/any";
@@ -193,17 +193,17 @@ function makeQueryArgs(meta:ObjectFieldMeta,context:TypeMapperContext){
     return queryArgs
 }
 
-function condition2FindOptions(search:any){
+function convert_to$(search:any){
     if(search != undefined && !(search instanceof Array) && typeof search === 'object')
         return Object.keys(search).reduce((findOptions,name)=>{
             let newName = name
             if(name.startsWith("_") && name !== "_id")
                 newName = "$"+name.slice(1)
-            findOptions[newName] = condition2FindOptions(search[name])
+            findOptions[newName] = convert_to$(search[name])
             return findOptions
         },{})
     if(search != undefined && search instanceof Array){
-        return search.map(condition2FindOptions)
+        return search.map(convert_to$)
     }
     if(ObjectID.isValid(search))
         return new ObjectID(search)
@@ -295,8 +295,27 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 if(!model)
                     return []
                 else {
-                    const findCondition = condition2FindOptions(args.search)
+                    const findCondition = convert_to$(args.search)
                     return model.count(findCondition)
+                }
+            }
+        }
+        query['aggregate'+capitalize(type.name)] = {
+            type: GraphQLAny,
+            description:"Aggregate "+meta.label,
+            args:{
+                pipelines:{
+                    type:new GraphQLNonNull(new GraphQLList(GraphQLAny)),
+                    description:""
+                } as GraphQLArgumentConfig
+            },
+            resolve:async (_,args)=>{
+                const model = await getModel(meta.name)
+                if(!model)
+                    return []
+                else {
+                    const aggregation = convert_to$(args.pipelines)
+                    return model.aggregate(aggregation)
                 }
             }
         }
@@ -309,7 +328,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 if(!model)
                     return []
                 else {
-                    const findCondition = condition2FindOptions(args.search)
+                    const findCondition = convert_to$(args.search)
                     const query = model.find(findCondition)
                         .sort(args.sort ? args.sort.reduce((obj,f)=>{
                             obj[f.field]=f.direction
@@ -394,7 +413,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            const updateResult = await model.updateMany( condition2FindOptions(args.condition) ,args.payload).exec()
+                            const updateResult = await model.updateMany( convert_to$(args.condition) ,args.payload).exec()
                             const res = updateResult ? updateResult.n : 0
                             return res
                         }

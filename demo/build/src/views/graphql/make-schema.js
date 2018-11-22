@@ -241,17 +241,17 @@ function makeQueryArgs(meta, context) {
     }
     return queryArgs;
 }
-function condition2FindOptions(search) {
+function convert_to$(search) {
     if (search != undefined && !(search instanceof Array) && typeof search === 'object')
         return Object.keys(search).reduce(function (findOptions, name) {
             var newName = name;
             if (name.startsWith("_") && name !== "_id")
                 newName = "$" + name.slice(1);
-            findOptions[newName] = condition2FindOptions(search[name]);
+            findOptions[newName] = convert_to$(search[name]);
             return findOptions;
         }, {});
     if (search != undefined && search instanceof Array) {
-        return search.map(condition2FindOptions);
+        return search.map(convert_to$);
     }
     if (bson_1.ObjectID.isValid(search))
         return new bson_1.ObjectID(search);
@@ -334,8 +334,35 @@ function makeGraphQLSchema(options) {
                             if (!model)
                                 return [2 /*return*/, []];
                             else {
-                                findCondition = condition2FindOptions(args.search);
+                                findCondition = convert_to$(args.search);
                                 return [2 /*return*/, model.count(findCondition)];
+                            }
+                            return [2 /*return*/];
+                    }
+                });
+            }); }
+        };
+        query['aggregate' + capitalize(type.name)] = {
+            type: any_1.GraphQLAny,
+            description: "Aggregate " + meta.label,
+            args: {
+                pipelines: {
+                    type: new graphql_1.GraphQLNonNull(new graphql_1.GraphQLList(any_1.GraphQLAny)),
+                    description: ""
+                }
+            },
+            resolve: function (_, args) { return __awaiter(_this, void 0, void 0, function () {
+                var model, aggregation;
+                return __generator(this, function (_a) {
+                    switch (_a.label) {
+                        case 0: return [4 /*yield*/, getModel(meta.name)];
+                        case 1:
+                            model = _a.sent();
+                            if (!model)
+                                return [2 /*return*/, []];
+                            else {
+                                aggregation = convert_to$(args.pipelines);
+                                return [2 /*return*/, model.aggregate(aggregation)];
                             }
                             return [2 /*return*/];
                     }
@@ -356,7 +383,7 @@ function makeGraphQLSchema(options) {
                             if (!model)
                                 return [2 /*return*/, []];
                             else {
-                                findCondition = condition2FindOptions(args.search);
+                                findCondition = convert_to$(args.search);
                                 query_1 = model.find(findCondition)
                                     .sort(args.sort ? args.sort.reduce(function (obj, f) {
                                     obj[f.field] = f.direction;
@@ -462,7 +489,7 @@ function makeGraphQLSchema(options) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [4 /*yield*/, model.updateMany(condition2FindOptions(args.condition), args.payload).exec()];
+                                    return [4 /*yield*/, model.updateMany(convert_to$(args.condition), args.payload).exec()];
                                 case 2:
                                     updateResult = _a.sent();
                                     res = updateResult ? updateResult.n : 0;
