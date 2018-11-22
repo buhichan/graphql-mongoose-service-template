@@ -253,7 +253,7 @@ function convert_to$(search) {
     if (search != undefined && search instanceof Array) {
         return search.map(convert_to$);
     }
-    if (bson_1.ObjectID.isValid(search))
+    if (typeof search === 'string' && /^[0-9a-f]{24}$/.test(search))
         return new bson_1.ObjectID(search);
     return search;
 }

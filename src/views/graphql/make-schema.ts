@@ -205,7 +205,7 @@ function convert_to$(search:any){
     if(search != undefined && search instanceof Array){
         return search.map(convert_to$)
     }
-    if(ObjectID.isValid(search))
+    if(typeof search==='string' && /^[0-9a-f]{24}$/.test(search))
         return new ObjectID(search)
     return search
 }
