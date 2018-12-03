@@ -2,13 +2,11 @@ import { Schema } from "mongoose";
 import { IMetaConstraint } from "./validate";
 import { GraphQLFieldResolver } from "graphql";
 export declare const mapFieldTypeToMongooseType: {
-    "number": NumberConstructor;
-    "string": StringConstructor;
-    "boolean": BooleanConstructor;
+    "number": typeof Schema.Types.Number;
+    "string": typeof Schema.Types.String;
+    "boolean": typeof Schema.Types.Boolean;
     "ref": typeof Schema.Types.ObjectId;
-    "array": ArrayConstructor;
-    "object": ObjectConstructor;
-    "date": DateConstructor;
+    "date": typeof Schema.Types.Date;
     "any": typeof Schema.Types.Mixed;
 };
 export declare type FieldTypes = keyof typeof mapFieldTypeToMongooseType;

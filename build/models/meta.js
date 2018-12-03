@@ -3,13 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var mongoose_1 = require("mongoose");
 var validate_1 = require("./validate");
 exports.mapFieldTypeToMongooseType = {
-    "number": Number,
-    "string": String,
-    "boolean": Boolean,
+    "number": mongoose_1.Schema.Types.Number,
+    "string": mongoose_1.Schema.Types.String,
+    "boolean": mongoose_1.Schema.Types.Boolean,
     "ref": mongoose_1.Schema.Types.ObjectId,
-    "array": Array,
-    "object": Object,
-    "date": Date,
+    "date": mongoose_1.Schema.Types.Date,
     "any": mongoose_1.Schema.Types.Mixed
 };
 function buildMeta(nestLevel) {

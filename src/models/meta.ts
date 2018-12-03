@@ -3,13 +3,11 @@ import { IMetaConstraint, applyMetaValidator, fieldValidator } from "./validate"
 import { GraphQLFieldResolver } from "graphql";
 
 export const mapFieldTypeToMongooseType = {
-    "number":Number,
-    "string":String,
-    "boolean":Boolean,
+    "number":Schema.Types.Number,
+    "string":Schema.Types.String,
+    "boolean":Schema.Types.Boolean,
     "ref":Schema.Types.ObjectId,
-    "array":Array,
-    "object":Object,
-    "date":Date,
+    "date":Schema.Types.Date,
     "any":Schema.Types.Mixed
 }
 

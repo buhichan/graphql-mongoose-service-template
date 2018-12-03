@@ -15,8 +15,7 @@ var meta_1 = require("./meta");
 var mongoose_1 = require("mongoose");
 var validate_1 = require("./validate");
 var typeKey = '$type';
-function mapMetaTypeToMongooseType(fieldMeta) {
-    var _a;
+function makeFieldDefinition(fieldMeta) {
     if (fieldMeta.resolve) { // TBD:resolve的不存在于数据库
         return null;
     }
@@ -31,24 +30,11 @@ function mapMetaTypeToMongooseType(fieldMeta) {
             return makeSchemaDefinition(fieldMeta.fields);
         default: {
             if (fieldMeta.type in meta_1.mapFieldTypeToMongooseType)
-                return _a = {},
-                    _a[typeKey] = meta_1.mapFieldTypeToMongooseType[fieldMeta.type],
-                    _a.default = fieldMeta.defaultValue,
-                    _a;
+                return meta_1.mapFieldTypeToMongooseType[fieldMeta.type];
             else
                 return null;
         }
     }
-}
-function makeFieldDefinition(fieldMeta) {
-    var _a;
-    var type = mapMetaTypeToMongooseType(fieldMeta);
-    if (fieldMeta.ref)
-        return _a = {},
-            _a[typeKey] = type,
-            _a.ref = fieldMeta.ref,
-            _a;
-    return type;
 }
 function makeSchemaDefinition(metaFields) {
     if (!metaFields)

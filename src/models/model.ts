@@ -8,7 +8,7 @@ export interface TypedDocument<T> extends Document {
     toJSON():T,
 }
 
-function mapMetaTypeToMongooseType(fieldMeta:IMeta){
+function makeFieldDefinition(fieldMeta:IMeta){
     if(fieldMeta.resolve){ // TBD:resolve的不存在于数据库
         return null
     }
@@ -23,24 +23,11 @@ function mapMetaTypeToMongooseType(fieldMeta:IMeta){
             return makeSchemaDefinition(fieldMeta.fields)
         default:{
             if(fieldMeta.type in mapFieldTypeToMongooseType)
-                return {
-                    [typeKey]: mapFieldTypeToMongooseType[fieldMeta.type],
-                    default: fieldMeta.defaultValue
-                }
+                return mapFieldTypeToMongooseType[fieldMeta.type]
             else
                 return null
         }
     }
-}
-
-function makeFieldDefinition(fieldMeta:IMeta){
-    const type = mapMetaTypeToMongooseType(fieldMeta)
-    if((fieldMeta as RefFieldMeta).ref)
-        return {
-            [typeKey]: type,
-            ref:(fieldMeta as RefFieldMeta).ref
-        }
-    return type
 }
 
 export function makeSchemaDefinition (metaFields:IMeta[]):SchemaDefinition{
