@@ -315,7 +315,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                     return []
                 else {
                     const aggregation = convert_to$(args.pipelines)
-                    return model.aggregate(aggregation)
+                    return model.aggregate(aggregation).allowDiskUse(true)
                 }
             }
         }

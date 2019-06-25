@@ -1,7 +1,7 @@
-import { IMeta, ObjectFieldMeta } from "../../models/meta";
-import { GraphQLSchema,graphql, GraphQLFieldResolver} from "graphql";
-import { Plugin,Request } from "hapi";
+import { graphql, GraphQLSchema } from "graphql";
+import { Plugin, Request } from "hapi";
 import { Connection } from "mongoose";
+import { IMeta, ObjectFieldMeta } from "../../models/meta";
 import { makeGraphQLSchema } from "./make-schema";
 
 export type GraphqlPluginOptions<Context=Request> = {

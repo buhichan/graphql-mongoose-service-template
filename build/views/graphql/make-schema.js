@@ -362,7 +362,7 @@ function makeGraphQLSchema(options) {
                                 return [2 /*return*/, []];
                             else {
                                 aggregation = convert_to$(args.pipelines);
-                                return [2 /*return*/, model.aggregate(aggregation)];
+                                return [2 /*return*/, model.aggregate(aggregation).allowDiskUse(true)];
                             }
                             return [2 /*return*/];
                     }

@@ -1,7 +1,7 @@
 {
-  "name": "graphql-mongoose-connector",
+  "name": "graphql-mongoose-service-template",
   "version": "0.0.34",
-  "description": "graphql-mongoose-connector",
+  "description": "graphql-mongoose-service-template",
   "main": "build/index.js",
   "repository": {
     "type": "git",
