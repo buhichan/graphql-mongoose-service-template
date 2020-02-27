@@ -125,6 +125,19 @@ app.listen()
     - 需要手动打开
 - [x] batcher/dataloader
     - Solve n+1 problem
+- [x] Bson Type Support
+    - 需要使用如下形式
+    ```
+    //Example
+    variables = {
+        createdAt: {
+            _gte: {
+                _bsonType: "ISODate",
+                _bsonValue: "2020-02-18T00:00:00"
+            },
+        }
+    }
+    ```
 
 # Dev
 

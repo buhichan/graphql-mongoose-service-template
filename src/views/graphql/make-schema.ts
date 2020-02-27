@@ -193,21 +193,43 @@ function makeQueryArgs(meta:ObjectFieldMeta,context:TypeMapperContext){
     return queryArgs
 }
 
-function convert_to$(search:any){
-    if(search != undefined && !(search instanceof Array) && typeof search === 'object')
+const BSON_TYPE_KEY = "_bsonType"
+const BSON_TYPE_VALUE = "_bsonValue"
+enum BsonInJsonTypeName {
+    ISODate="ISODate",
+    ObjectID="ObjectID"
+}
+
+//这里很丑, 但是要做兼容
+function convertSearchConditionToBson(search:any){
+    if(search != undefined && !(search instanceof Array) && typeof search === 'object'){
+        if(search[BSON_TYPE_KEY] === BsonInJsonTypeName.ISODate){
+            return new Date(search[BSON_TYPE_VALUE])
+        }
+        if(search[BSON_TYPE_KEY] === BsonInJsonTypeName.ObjectID){
+            return new ObjectID(search[BSON_TYPE_VALUE])
+        }
         return Object.keys(search).reduce((findOptions,name)=>{
             let newName = name
-            if(name.startsWith("_") && name !== "_id")
+            if(name.startsWith("_") && name !== "_id"){
                 newName = "$"+name.slice(1)
-            findOptions[newName] = convert_to$(search[name])
+            }
+            findOptions[newName] = convertSearchConditionToBson(search[name])
             return findOptions
         },{})
+    }
     if(search != undefined && search instanceof Array){
-        return search.map(convert_to$)
+        return search.map(convertSearchConditionToBson)
     }
     if(typeof search==='string' && /^[0-9a-f]{24}$/.test(search))
         return new ObjectID(search)
     return search
+}
+
+export enum InternalFields {
+    _id="_id",
+    createdAt="createdAt",
+    updatedAt="updatedAt",
 }
 
 export function makeGraphQLSchema(options:GraphqlPluginOptions){
@@ -233,18 +255,18 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
     }
     const internalFields:IMeta[] = [
         {
-            name:"_id",
+            name:InternalFields._id,
             label:"ID",
             type:"string",
             readonly:true
         },
         {
-            name:"createdAt",
+            name:InternalFields.createdAt,
             label:"创建时间",
             type:"date",
             readonly:true
         },{
-            name:"updatedAt",
+            name:InternalFields.updatedAt,
             label:"更新时间",
             type:"date",
             readonly:true
@@ -295,7 +317,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 if(!model)
                     return []
                 else {
-                    const findCondition = convert_to$(args.search)
+                    const findCondition = convertSearchConditionToBson(args.search)
                     return model.count(findCondition)
                 }
             }
@@ -314,7 +336,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 if(!model)
                     return []
                 else {
-                    const aggregation = convert_to$(args.pipelines)
+                    const aggregation = convertSearchConditionToBson(args.pipelines)
                     return model.aggregate(aggregation).allowDiskUse(true)
                 }
             }
@@ -328,7 +350,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                 if(!model)
                     return []
                 else {
-                    const findCondition = convert_to$(args.search)
+                    const findCondition = convertSearchConditionToBson(args.search)
                     const query = model.find(findCondition)
                         .sort(args.sort ? args.sort.reduce((obj,f)=>{
                             obj[f.field]=f.direction
@@ -413,7 +435,7 @@ export function makeGraphQLSchema(options:GraphqlPluginOptions){
                         },
                         resolve:async (source,args,context,info)=>{
                             const model = await getModel(meta.name)
-                            const updateResult = await model.updateMany( convert_to$(args.condition) ,args.payload).exec()
+                            const updateResult = await model.updateMany( convertSearchConditionToBson(args.condition) ,args.payload).exec()
                             const res = updateResult ? updateResult.n : 0
                             return res
                         }
