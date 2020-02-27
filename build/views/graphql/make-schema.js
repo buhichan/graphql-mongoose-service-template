@@ -241,22 +241,44 @@ function makeQueryArgs(meta, context) {
     }
     return queryArgs;
 }
-function convert_to$(search) {
-    if (search != undefined && !(search instanceof Array) && typeof search === 'object')
+var BSON_TYPE_KEY = "_bsonType";
+var BSON_TYPE_VALUE = "_bsonValue";
+var BsonInJsonTypeName;
+(function (BsonInJsonTypeName) {
+    BsonInJsonTypeName["ISODate"] = "ISODate";
+    BsonInJsonTypeName["ObjectID"] = "ObjectID";
+})(BsonInJsonTypeName || (BsonInJsonTypeName = {}));
+//这里很丑, 但是要做兼容
+function convertSearchConditionToBson(search) {
+    if (search != undefined && !(search instanceof Array) && typeof search === 'object') {
+        if (search[BSON_TYPE_KEY] === BsonInJsonTypeName.ISODate) {
+            return new Date(search[BSON_TYPE_VALUE]);
+        }
+        if (search[BSON_TYPE_KEY] === BsonInJsonTypeName.ObjectID) {
+            return new bson_1.ObjectID(search[BSON_TYPE_VALUE]);
+        }
         return Object.keys(search).reduce(function (findOptions, name) {
             var newName = name;
-            if (name.startsWith("_") && name !== "_id")
+            if (name.startsWith("_") && name !== "_id") {
                 newName = "$" + name.slice(1);
-            findOptions[newName] = convert_to$(search[name]);
+            }
+            findOptions[newName] = convertSearchConditionToBson(search[name]);
             return findOptions;
         }, {});
+    }
     if (search != undefined && search instanceof Array) {
-        return search.map(convert_to$);
+        return search.map(convertSearchConditionToBson);
     }
     if (typeof search === 'string' && /^[0-9a-f]{24}$/.test(search))
         return new bson_1.ObjectID(search);
     return search;
 }
+var InternalFields;
+(function (InternalFields) {
+    InternalFields["_id"] = "_id";
+    InternalFields["createdAt"] = "createdAt";
+    InternalFields["updatedAt"] = "updatedAt";
+})(InternalFields = exports.InternalFields || (exports.InternalFields = {}));
 function makeGraphQLSchema(options) {
     var _this = this;
     var connection = options.connection, metas = options.metas, _a = options.mutations, mutationMetas = _a === void 0 ? {} : _a, _b = options.queries, queryMetas = _b === void 0 ? {} : _b;
@@ -275,18 +297,18 @@ function makeGraphQLSchema(options) {
     };
     var internalFields = [
         {
-            name: "_id",
+            name: InternalFields._id,
             label: "ID",
             type: "string",
             readonly: true
         },
         {
-            name: "createdAt",
+            name: InternalFields.createdAt,
             label: "创建时间",
             type: "date",
             readonly: true
         }, {
-            name: "updatedAt",
+            name: InternalFields.updatedAt,
             label: "更新时间",
             type: "date",
             readonly: true
@@ -334,7 +356,7 @@ function makeGraphQLSchema(options) {
                             if (!model)
                                 return [2 /*return*/, []];
                             else {
-                                findCondition = convert_to$(args.search);
+                                findCondition = convertSearchConditionToBson(args.search);
                                 return [2 /*return*/, model.count(findCondition)];
                             }
                             return [2 /*return*/];
@@ -361,7 +383,7 @@ function makeGraphQLSchema(options) {
                             if (!model)
                                 return [2 /*return*/, []];
                             else {
-                                aggregation = convert_to$(args.pipelines);
+                                aggregation = convertSearchConditionToBson(args.pipelines);
                                 return [2 /*return*/, model.aggregate(aggregation).allowDiskUse(true)];
                             }
                             return [2 /*return*/];
@@ -383,7 +405,7 @@ function makeGraphQLSchema(options) {
                             if (!model)
                                 return [2 /*return*/, []];
                             else {
-                                findCondition = convert_to$(args.search);
+                                findCondition = convertSearchConditionToBson(args.search);
                                 query_1 = model.find(findCondition)
                                     .sort(args.sort ? args.sort.reduce(function (obj, f) {
                                     obj[f.field] = f.direction;
@@ -489,7 +511,7 @@ function makeGraphQLSchema(options) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [4 /*yield*/, model.updateMany(convert_to$(args.condition), args.payload).exec()];
+                                    return [4 /*yield*/, model.updateMany(convertSearchConditionToBson(args.condition), args.payload).exec()];
                                 case 2:
                                     updateResult = _a.sent();
                                     res = updateResult ? updateResult.n : 0;

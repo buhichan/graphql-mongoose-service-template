@@ -15,4 +15,9 @@ export declare type TypeMapperContext = {
 };
 export declare function mapMetaToOutputType(field: IMeta, context: TypeMapperContext, path: string[]): GraphQLOutputType | null;
 export declare function mapMetaToInputType(meta: IMeta, context: TypeMapperContext, path: string[], operationType: "Any" | "Read" | "Write"): GraphQLInputType | null;
+export declare enum InternalFields {
+    _id = "_id",
+    createdAt = "createdAt",
+    updatedAt = "updatedAt"
+}
 export declare function makeGraphQLSchema(options: GraphqlPluginOptions): GraphQLSchema;
