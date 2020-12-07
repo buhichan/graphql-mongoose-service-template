@@ -1,6 +1,6 @@
-import { IMeta, ObjectFieldMeta } from "../../models/meta";
 import { Request } from "hapi";
 import { Connection } from "mongoose";
+import { IMeta, ObjectFieldMeta } from "../../models/meta";
 export declare type GraphqlPluginOptions<Context = Request> = {
     metas: ObjectFieldMeta[];
     connection: Connection;

@@ -14,9 +14,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var meta_1 = require("./meta");
 var mongoose_1 = require("mongoose");
 var validate_1 = require("./validate");
-var typeKey = '$type';
+var typeKey = "$type";
 function makeFieldDefinition(fieldMeta) {
-    if (fieldMeta.resolve) { // TBD:resolve的不存在于数据库
+    if (fieldMeta.resolve) {
+        // TBD:resolve的不存在于数据库
         return null;
     }
     switch (fieldMeta.type) {
@@ -47,11 +48,9 @@ function makeSchemaDefinition(metaFields) {
     }, {});
 }
 exports.makeSchemaDefinition = makeSchemaDefinition;
-function makeModelFromMeta(options) {
-    var connection = options.connection, meta = options.meta, _a = options.schemaOptions, schemaOptions = _a === void 0 ? {} : _a, _b = options.mapSchemaDefinition, mapSchemaDefinition = _b === void 0 ? function (x) { return x; } : _b;
-    if (meta.name in connection.models)
-        delete connection.models[meta.name];
-    if (meta.type === 'object' && meta.fields) {
+function makeSchemaFromMeta(_a) {
+    var meta = _a.meta, _b = _a.schemaOptions, schemaOptions = _b === void 0 ? {} : _b, _c = _a.mapSchemaDefinition, mapSchemaDefinition = _c === void 0 ? function (x) { return x; } : _c;
+    if (meta.type === "object" && meta.fields) {
         var def = mapSchemaDefinition(makeSchemaDefinition(meta.fields));
         var schema = new mongoose_1.Schema(def, __assign({ timestamps: true }, schemaOptions, { typeKey: typeKey }));
         schema.pre("validate", function (next) {
@@ -61,15 +60,20 @@ function makeModelFromMeta(options) {
             else
                 next();
         });
-        try {
-            return connection.model(meta.name, schema, meta.name);
-        }
-        catch (e) {
-            console.error('invalid meta:', meta);
-            console.error('invalid mongoose def:', def);
-            throw e;
-        }
+        return schema;
     }
+    else {
+        return null;
+    }
+}
+exports.makeSchemaFromMeta = makeSchemaFromMeta;
+function makeModelFromMeta(options) {
+    var connection = options.connection, meta = options.meta;
+    if (meta.name in connection.models) {
+        delete connection.models[meta.name];
+    }
+    var schema = makeSchemaFromMeta(options);
+    return connection.model(meta.name, schema, meta.name);
 }
 exports.makeModelFromMeta = makeModelFromMeta;
 //# sourceMappingURL=model.js.map

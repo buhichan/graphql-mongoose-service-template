@@ -89,12 +89,12 @@ function mapMetaToField(fieldMeta, context, path) {
     }
     var field = {
         type: mapMetaToOutputType(fieldMeta, context, path),
-        description: fieldMeta.label
+        description: fieldMeta.label,
     };
-    if (fieldMeta.type === 'ref' && fieldMeta.ref) {
+    if (fieldMeta.type === "ref" && fieldMeta.ref) {
         field.resolve = make_ref_resolver_1.makeRefResolver(fieldMeta, context);
     }
-    else if (fieldMeta.type === 'array' && fieldMeta.item && fieldMeta.item.type === 'ref' && fieldMeta.item.ref) {
+    else if (fieldMeta.type === "array" && fieldMeta.item && fieldMeta.item.type === "ref" && fieldMeta.item.ref) {
         field.resolve = make_ref_resolver_1.makeRefResolver(fieldMeta.item, context);
     }
     return field;
@@ -106,47 +106,54 @@ function mapMetaToOutputType(field, context, path) {
             return null;
         case field.name === "_id":
             return graphql_1.GraphQLID;
-        case ('enum' in field && field.enum instanceof Array && field.enum.length > 0): {
-            var enumList = field['enum'];
+        case "enum" in field && field.enum instanceof Array && field.enum.length > 0: {
+            var enumList = field["enum"];
             if (!context.enumTypePoll[field.name]) {
                 context.enumTypePoll[field.name] = new graphql_1.GraphQLEnumType({
                     name: path.concat(field.name).join("__"),
                     values: enumList.reduce(function (enums, v) {
                         var _a;
                         return (__assign({}, enums, (_a = {}, _a[v] = { value: v }, _a)));
-                    }, {})
+                    }, {}),
                 });
             }
             return context.enumTypePoll[field.name];
         }
-        case field.type === "any": return any_1.GraphQLAny;
-        case field.type === "date": return graphql_1.GraphQLString;
-        case field.type === "number": return graphql_1.GraphQLInt;
+        case field.type === "any":
+            return any_1.GraphQLAny;
+        case field.type === "date":
+            return graphql_1.GraphQLString;
+        case field.type === "number":
+            return graphql_1.GraphQLInt;
         case field.type === "ref" && context.outputTypeHashMap.has(field.ref): {
             return context.outputTypeHashMap.get(field.ref);
         }
-        case field.type === "boolean": return graphql_1.GraphQLBoolean;
+        case field.type === "boolean":
+            return graphql_1.GraphQLBoolean;
         case field.type === "array": {
             //https://github.com/Microsoft/TypeScript/issues/10421
             // item's name must be equal to array's name, to ensure path is correct.
+            ;
             field.item.name = field.name;
             var item = mapMetaToOutputType(field.item, context, path);
             if (!item)
                 return null;
             return new graphql_1.GraphQLList(item);
         }
-        case field.type === "object" && 'fields' in field && field.fields instanceof Array && field.fields.length > 0: {
+        case field.type === "object" && "fields" in field && field.fields instanceof Array && field.fields.length > 0: {
             var ObjectTypeUniqueName = path.concat(field.name).join("__");
             if (!context.outputTypeHashMap.has(ObjectTypeUniqueName))
                 context.outputTypeHashMap.set(ObjectTypeUniqueName, new graphql_1.GraphQLObjectType({
                     name: ObjectTypeUniqueName,
                     description: field.label,
-                    fields: function () { return field.fields.reduce(function (fields, childMeta) {
-                        var child = mapMetaToField(childMeta, context, path.concat(field.name));
-                        if (child)
-                            fields[childMeta.name] = child;
-                        return fields;
-                    }, {}); }
+                    fields: function () {
+                        return field.fields.reduce(function (fields, childMeta) {
+                            var child = mapMetaToField(childMeta, context, path.concat(field.name));
+                            if (child)
+                                fields[childMeta.name] = child;
+                            return fields;
+                        }, {});
+                    },
                 }));
             return context.outputTypeHashMap.get(ObjectTypeUniqueName);
         }
@@ -160,30 +167,32 @@ function mapMetaToInputType(meta, context, path, operationType) {
         return null;
     if (meta.resolve)
         return null; //TBD: resolvable field is assumed readonly
-    if ('readonly' in meta && operationType === 'Write')
+    if ("readonly" in meta && operationType === "Write")
         return null;
-    if (meta.writeonly && operationType === 'Read')
+    if (meta.writeonly && operationType === "Read")
         return null;
     if (meta.type === "ref")
         return graphql_1.GraphQLString;
-    if (meta.type === 'object') {
+    if (meta.type === "object") {
         var inputObjectTypeUniqueName = operationType + path.join("__") + capitalize(meta.name);
         if (!context.inputTypeHashMap.has(inputObjectTypeUniqueName))
             context.inputTypeHashMap.set(inputObjectTypeUniqueName, new graphql_1.GraphQLInputObjectType({
                 name: inputObjectTypeUniqueName,
-                fields: function () { return meta.fields.reduce(function (inputFields, fieldMeta) {
-                    var converted = mapMetaToInputType(fieldMeta, context, path.concat(meta.name), operationType);
-                    if (converted)
-                        inputFields[fieldMeta.name] = {
-                            type: converted,
-                            description: fieldMeta.label
-                        };
-                    return inputFields;
-                }, {}); }
+                fields: function () {
+                    return meta.fields.reduce(function (inputFields, fieldMeta) {
+                        var converted = mapMetaToInputType(fieldMeta, context, path.concat(meta.name), operationType);
+                        if (converted)
+                            inputFields[fieldMeta.name] = {
+                                type: converted,
+                                description: fieldMeta.label,
+                            };
+                        return inputFields;
+                    }, {});
+                },
             }));
         return context.inputTypeHashMap.get(inputObjectTypeUniqueName);
     }
-    else if (meta.type === 'array') {
+    else if (meta.type === "array") {
         var item = mapMetaToInputType(meta.item, context, path, operationType);
         if (!item)
             return null;
@@ -200,43 +209,43 @@ var sortEnumType = new graphql_1.GraphQLEnumType({
     name: "SortDirection",
     values: {
         asc: { value: 1, description: "升序" },
-        desc: { value: -1, description: "降序" }
-    }
+        desc: { value: -1, description: "降序" },
+    },
 });
 //为什么sort要用array? 因为graphql的处理忽略了object内key的顺序
 var sortArgType = new graphql_1.GraphQLList(new graphql_1.GraphQLInputObjectType({
     name: "SortField",
     fields: {
         field: {
-            type: graphql_1.GraphQLString
+            type: graphql_1.GraphQLString,
         },
         direction: {
             type: sortEnumType,
-            defaultValue: 1
-        }
-    }
+            defaultValue: 1,
+        },
+    },
 }));
 function makeQueryArgs(meta, context) {
     var indexableFields = meta.fields.filter(function (x) {
-        return ['number', 'string', 'date'].includes(x.type) && x.name !== "_id";
+        return ["number", "string", "date"].includes(x.type) && x.name !== "_id";
     });
     var queryArgs = {
         search: {
             type: any_1.GraphQLAny,
             description: "搜索条件, 支持mongodb操作符, 但需要把$替换为_",
-            defaultValue: {}
+            defaultValue: {},
         },
         limit: {
-            type: graphql_1.GraphQLInt
+            type: graphql_1.GraphQLInt,
         },
         skip: {
             type: graphql_1.GraphQLInt,
-            defaultValue: 0
-        }
+            defaultValue: 0,
+        },
     };
     if (indexableFields.length) {
         queryArgs.sort = {
-            type: sortArgType
+            type: sortArgType,
         };
     }
     return queryArgs;
@@ -250,7 +259,7 @@ var BsonInJsonTypeName;
 })(BsonInJsonTypeName || (BsonInJsonTypeName = {}));
 //这里很丑, 但是要做兼容
 function convertSearchConditionToBson(search) {
-    if (search != undefined && !(search instanceof Array) && typeof search === 'object') {
+    if (search != undefined && !(search instanceof Array) && typeof search === "object") {
         if (search[BSON_TYPE_KEY] === BsonInJsonTypeName.ISODate) {
             return new Date(search[BSON_TYPE_VALUE]);
         }
@@ -269,7 +278,7 @@ function convertSearchConditionToBson(search) {
     if (search != undefined && search instanceof Array) {
         return search.map(convertSearchConditionToBson);
     }
-    if (typeof search === 'string' && /^[0-9a-f]{24}$/.test(search))
+    if (typeof search === "string" && /^[0-9a-f]{24}$/.test(search))
         return new bson_1.ObjectID(search);
     return search;
 }
@@ -293,28 +302,31 @@ function makeGraphQLSchema(options) {
         metaMap: new Map(),
         enumTypePoll: {},
         inputTypeHashMap: new Map(),
-        outputTypeHashMap: new Map()
+        outputTypeHashMap: new Map(),
     };
     var internalFields = [
         {
             name: InternalFields._id,
             label: "ID",
             type: "string",
-            readonly: true
+            readonly: true,
         },
         {
             name: InternalFields.createdAt,
             label: "创建时间",
             type: "date",
-            readonly: true
-        }, {
+            readonly: true,
+        },
+        {
             name: InternalFields.updatedAt,
             label: "更新时间",
             type: "date",
-            readonly: true
-        }
+            readonly: true,
+        },
     ];
-    metas = metas.filter(function (x) { return x && x.type === "object"; }).map(function (modelMeta) {
+    metas = metas
+        .filter(function (x) { return x && x.type === "object"; })
+        .map(function (modelMeta) {
         context.metaMap.set(modelMeta.name, modelMeta);
         return __assign({}, modelMeta, { fields: __spread(modelMeta.fields, internalFields.filter(function (x) { return !modelMeta.fields.some(function (y) { return y.name === x.name; }); })) });
     });
@@ -324,11 +336,13 @@ function makeGraphQLSchema(options) {
             var model = context.getModel(meta.name);
             if (!model)
                 return Promise.resolve(null);
-            return model.find({
+            return model
+                .find({
                 _id: {
-                    $in: ids.map(String)
-                }
-            }).then(function (res) {
+                    $in: ids.map(String),
+                },
+            })
+                .then(function (res) {
                 var ordered = ids.map(function (id) {
                     return res.find(function (x) { return String(x._id) === String(id); });
                 });
@@ -342,7 +356,7 @@ function makeGraphQLSchema(options) {
     var IDType = new graphql_1.GraphQLNonNull(graphql_1.GraphQLID);
     var metaTypeQueries = rootTypes.reduce(function (query, type, i) {
         var meta = metas[i];
-        query['count' + capitalize(type.name)] = {
+        query["count" + capitalize(type.name)] = {
             type: graphql_1.GraphQLInt,
             description: "Count " + meta.label,
             args: makeQueryArgs(meta, context),
@@ -362,16 +376,16 @@ function makeGraphQLSchema(options) {
                             return [2 /*return*/];
                     }
                 });
-            }); }
+            }); },
         };
-        query['aggregate' + capitalize(type.name)] = {
+        query["aggregate" + capitalize(type.name)] = {
             type: any_1.GraphQLAny,
             description: "Aggregate " + meta.label,
             args: {
                 pipelines: {
                     type: new graphql_1.GraphQLNonNull(new graphql_1.GraphQLList(any_1.GraphQLAny)),
-                    description: ""
-                }
+                    description: "",
+                },
             },
             resolve: function (_, args) { return __awaiter(_this, void 0, void 0, function () {
                 var model, aggregation;
@@ -389,7 +403,7 @@ function makeGraphQLSchema(options) {
                             return [2 /*return*/];
                     }
                 });
-            }); }
+            }); },
         };
         query[type.name] = {
             type: new graphql_1.GraphQLList(type),
@@ -406,11 +420,14 @@ function makeGraphQLSchema(options) {
                                 return [2 /*return*/, []];
                             else {
                                 findCondition = convertSearchConditionToBson(args.search);
-                                query_1 = model.find(findCondition)
-                                    .sort(args.sort ? args.sort.reduce(function (obj, f) {
-                                    obj[f.field] = f.direction;
-                                    return obj;
-                                }, {}) : undefined)
+                                query_1 = model
+                                    .find(findCondition)
+                                    .sort(args.sort
+                                    ? args.sort.reduce(function (obj, f) {
+                                        obj[f.field] = f.direction;
+                                        return obj;
+                                    }, {})
+                                    : undefined)
                                     .skip(args.skip);
                                 if (args.limit)
                                     return [2 /*return*/, query_1.limit(args.limit)];
@@ -421,7 +438,7 @@ function makeGraphQLSchema(options) {
                             return [2 /*return*/];
                     }
                 });
-            }); }
+            }); },
         };
         return query;
     }, {});
@@ -441,14 +458,14 @@ function makeGraphQLSchema(options) {
                 if (!modelType)
                     throw new Error("Cannot find modelType:" + meta.name);
                 // const modelReadType = new GraphQLNonNull(mapMetaToInputType(meta,context, [],'Read'))
-                var modelWriteType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, [], 'Write'));
-                var addModelMutationName = 'add' + capitalize(meta.name);
+                var modelWriteType = new graphql_1.GraphQLNonNull(mapMetaToInputType(meta, context, [], "Write"));
+                var addModelMutationName = "add" + capitalize(meta.name);
                 mutations[addModelMutationName] = {
                     type: modelType,
                     args: {
                         payload: {
-                            type: modelWriteType
-                        }
+                            type: modelWriteType,
+                        },
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
                         var model, res;
@@ -463,9 +480,9 @@ function makeGraphQLSchema(options) {
                                     return [2 /*return*/, res];
                             }
                         });
-                    }); }
+                    }); },
                 };
-                var updateModelMutationName = 'update' + capitalize(meta.name);
+                var updateModelMutationName = "update" + capitalize(meta.name);
                 mutations[updateModelMutationName] = {
                     type: modelType,
                     args: {
@@ -473,8 +490,8 @@ function makeGraphQLSchema(options) {
                             type: IDType,
                         },
                         payload: {
-                            type: modelWriteType
-                        }
+                            type: modelWriteType,
+                        },
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
                         var model, res;
@@ -483,26 +500,28 @@ function makeGraphQLSchema(options) {
                                 case 0: return [4 /*yield*/, getModel(meta.name)];
                                 case 1:
                                     model = _a.sent();
-                                    return [4 /*yield*/, model.findByIdAndUpdate(args._id, args.payload, {
-                                            new: true
-                                        }).exec()];
+                                    return [4 /*yield*/, model
+                                            .findByIdAndUpdate(args._id, args.payload, {
+                                            new: true,
+                                        })
+                                            .exec()];
                                 case 2:
                                     res = _a.sent();
                                     return [2 /*return*/, res];
                             }
                         });
-                    }); }
+                    }); },
                 };
-                var updateManyModelMutationName = 'updateMany' + capitalize(meta.name);
+                var updateManyModelMutationName = "updateMany" + capitalize(meta.name);
                 mutations[updateManyModelMutationName] = {
                     type: graphql_1.GraphQLInt,
                     args: {
                         condition: {
-                            type: any_1.GraphQLAny
+                            type: any_1.GraphQLAny,
                         },
                         payload: {
-                            type: modelWriteType
-                        }
+                            type: modelWriteType,
+                        },
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
                         var model, updateResult, res;
@@ -518,15 +537,15 @@ function makeGraphQLSchema(options) {
                                     return [2 /*return*/, res];
                             }
                         });
-                    }); }
+                    }); },
                 };
-                var deleteModelMutationName = 'delete' + capitalize(meta.name);
+                var deleteModelMutationName = "delete" + capitalize(meta.name);
                 mutations[deleteModelMutationName] = {
                     type: graphql_1.GraphQLInt,
                     args: {
                         _id: {
-                            type: IDType
-                        }
+                            type: IDType,
+                        },
                     },
                     resolve: function (source, args, context, info) { return __awaiter(_this, void 0, void 0, function () {
                         var model, res;
@@ -541,14 +560,14 @@ function makeGraphQLSchema(options) {
                                     return [2 /*return*/, !!res ? 1 : 0];
                             }
                         });
-                    }); }
+                    }); },
                 };
                 return mutations;
             }, {}), Object.keys(mutationMetas).reduce(function (obj, mutationName) {
                 obj[mutationName] = make_resolvable_field_1.makeResolvableField(mutationMetas[mutationName], context);
                 return obj;
-            }, {}))
-        })
+            }, {})),
+        }),
     });
     return schema;
 }

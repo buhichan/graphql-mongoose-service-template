@@ -38,8 +38,5 @@
   },
   "dependencies": {
     "graphql": "^0.13.2"
-  },
-  "resolutions": {
-    "graphql": "^0.13.2"
   }
 }
