@@ -1,6 +1,6 @@
 {
   "name": "graphql-mongoose-service-template",
-  "version": "0.0.36",
+  "version": "0.0.37",
   "description": "graphql-mongoose-service-template",
   "main": "build/index.js",
   "repository": {
